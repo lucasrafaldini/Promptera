@@ -1,8 +1,8 @@
 # 🪄 Promptera
 
-**Promptera** é um aplicativo nativo para macOS que vive diretamente no seu **Menu Bar**, integrando um gerenciador de histórico de **Clipboard (Copy-Paste)** com um **Harness de Engenharia de Prompts** baseado na metodologia do artigo de referência (*Oxair*: *"How to Create Your Own AI Prompt Generator That Works Forever"*).
+**Promptera** is a native macOS app that lives in your **Menu Bar**, integrating a **Clipboard History Manager** with a **Prompt Engineering Harness** based on the Oxair methodology (*"How to Create Your Own AI Prompt Generator That Works Forever"*).
 
-O Promptera foi projetado para rodar **100% local e privado** com aceleração de hardware **Metal** no seu processador **Apple Silicon (M4)** utilizando modelos locais via **Ollama**.
+Promptera runs **100% locally and privately** with **Metal** hardware acceleration on your **Apple Silicon (M4)** processor using local models via **Ollama**.
 
 [![CI](https://github.com/seu-usuario/promptera/workflows/CI/badge.svg)](https://github.com/seu-usuario/promptera/actions)
 [![Release](https://github.com/seu-usuario/promptera/workflows/Release/badge.svg)](https://github.com/seu-usuario/promptera/actions)
@@ -10,186 +10,188 @@ O Promptera foi projetado para rodar **100% local e privado** com aceleração d
 [![Platform](https://img.shields.io/badge/Platform-macOS%2014%2B-lightgrey.svg)](https://apple.com/macos)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+**🌐 Idiomas / Languages / Idiomas:** [English](README.md) • [Português](README.pt.md) • [Español](README.es.md)
+
 ---
 
-## 🌟 Recursos Principais
+## 🌟 Key Features
 
-### 1. Acesso Direto pelo Menu Bar
-- Ícone elegante na barra de menus do macOS (`MenuBarExtra` nativo)
-- Sem poluição no Dock (`LSUIElement = true`)
-- Interface rápida e responsiva em SwiftUI nativo com suporte a Dark/Light Mode
-- Transições animadas entre abas
+### 1. Direct Menu Bar Access
+- Elegant icon in macOS menu bar (`MenuBarExtra` native)
+- No Dock pollution (`LSUIElement = true`)
+- Fast, responsive SwiftUI interface with Dark/Light Mode support
+- Animated tab transitions
 
-### 2. Histórico de Clipboard Integrado
-- Monitoramento contínuo em segundo plano do `NSPasteboard`
-- Histórico pesquisável de recortes recentes de texto e código
-- Busca fuzzy em tempo real
-- 1-clique para carregar qualquer item como contexto
-- 1-clique para copiar o Master Prompt gerado
-- Ações via menu de contexto (clique direito)
-- Persistência automática entre sessões
+### 2. Integrated Clipboard History
+- Continuous background monitoring of `NSPasteboard`
+- Searchable history of recent text and code snippets
+- Real-time fuzzy search
+- 1-click to load any item as context for prompt generation
+- 1-click to copy generated Master Prompt back to clipboard
+- Context menu actions (right-click)
+- Automatic persistence between sessions
 
-### 3. Harness de Criação de Prompts (Metodologia Oxair)
-- **Loop Oxair (Gera → Critica → Refina):** A IA gera um rascunho, audita suas próprias falhas e premissas implícitas, e sintetiza um Master Prompt blindado
-- **Modo Modular:** Adiciona variáveis dinâmicas (`{{variavel}}`) para transformar o prompt em um template reutilizável
-- **Modo Direto:** Master Prompt estruturado em uma passada
-- **Presets de Domínio:** Configurações prontas para:
-  - 🛠️ **Engenharia de Software** — Arquitetura, refatoração, testes, documentação
-  - 🏗️ **System Design & DevOps** — Sistemas distribuídos, bancos, microsserviços
-  - 🧠 **Análise & Raciocínio Profundo** — Problemas complexos, síntese, decisão
-  - ✍️ **Copywriting & Conteúdo** — Copy persuasivo, artigos, documentação
-  - ✨ **Universal (Master)** — Qualquer objetivo geral
+### 3. Prompt Creation Harness (Oxair Methodology)
+- **Oxair Loop (Generate → Critique → Refine):** AI drafts, audits own flaws/implicit assumptions, synthesizes a battle-tested Master Prompt
+- **Modular Mode:** Adds dynamic variables (`{{variable}}`) to transform prompt into reusable template
+- **Direct Mode:** Structured Master Prompt in single pass
+- **Domain Presets:** Ready-to-use configurations for:
+  - 🛠️ **Software Engineering** — Architecture, refactoring, tests, documentation
+  - 🏗️ **System Design & DevOps** — Distributed systems, databases, microservices
+  - 🧠 **Deep Analysis & Reasoning** — Complex problems, synthesis, decision-making
+  - ✍️ **Copywriting & Content** — Persuasive copy, articles, documentation
+  - ✨ **Universal (Master)** — Any general objective
 
-### 4. Otimizado para Apple Silicon M4
-- Detecta e conecta ao servidor local Ollama (`http://127.0.0.1:11434`)
-- Seleção automática dos melhores modelos para M4 (`qwen2.5-coder:7b`, `llama3.1`, `phi4-mini`, `deepseek-coder-v2`)
-- Streaming de tokens em tempo real
-- 100% local — nenhum dado sai do seu Mac
+### 4. Optimized for Apple Silicon M4
+- Detects and connects to local Ollama server (`http://127.0.0.1:11434`)
+- Auto-selects best models for M4 (`qwen2.5-coder:7b`, `llama3.1`, `phi4-mini`, `deepseek-coder-v2`)
+- Real-time token streaming
+- 100% local — no data leaves your Mac
 
-### 5. Configurações Persistentes
-- Modelo, preset e modo salvos automaticamente
-- URL do Ollama configurável
-- Exportação/Importação completa (JSON)
-  - Prompts gerados
-  - Histórico de clipboard
-  - Configurações
+### 5. Persistent Settings
+- Model, preset, and mode saved automatically
+- Configurable Ollama URL
+- Full Export/Import (JSON)
+  - Generated prompts
+  - Clipboard history
+  - Settings
 
-### 6. Interface de Linha de Comando (CLI)
+### 6. Command Line Interface (CLI)
 ```bash
-# Gerar a partir do texto informado:
-swift run promptera "Criar um microserviço de autenticação JWT em Go"
+# Generate from provided text:
+swift run promptera "Create a JWT auth microservice in Go"
 
-# Ou usar o conteúdo atual do clipboard:
+# Or use current clipboard content:
 swift run promptera --clipboard
 ```
 
 ---
 
-## 🚀 Como Executar
+## 🚀 How to Run
 
-### Pré-requisitos
+### Prerequisites
 - macOS 14.0+ (Sonoma)
-- [Ollama](https://ollama.ai) instalado
-- Modelos recomendados: `ollama pull qwen2.5-coder:7b llama3.1 phi4-mini`
+- [Ollama](https://ollama.ai) installed
+- Recommended models: `ollama pull qwen2.5-coder:7b llama3.1 phi4-mini`
 
-### 1. Iniciar o Ollama
+### 1. Start Ollama
 ```bash
 ollama serve
 ```
 
-### 2. Abrir o App no Menu Bar
+### 2. Open App in Menu Bar
 ```bash
-# Opção A: Build e run direto
+# Option A: Build and run directly
 swift run PrompteraApp
 
-# Opção B: Build do .app nativo
+# Option B: Build native .app
 ./scripts/build_app.sh
 open build/Promptera.app
 ```
 
-### 3. (Opcional) Instalar em /Applications
+### 3. (Optional) Install to /Applications
 ```bash
 cp -R build/Promptera.app /Applications/
 ```
 
 ---
 
-## 🧪 Testes
+## 🧪 Tests
 
 ```bash
-# Todos os testes (unitários + E2E)
+# All tests (unit + E2E)
 swift test
 
-# Apenas testes unitários rápidos
+# Only fast unit tests
 swift test --filter "PrompteraKitTests"
 
-# Com cobertura (requer llvm-cov)
+# With coverage (requires llvm-cov)
 swift test --enable-code-coverage
 xcrun llvm-cov export -format="lcov" .build/debug/PrompteraKitTests.xctest/Contents/MacOS/PrompteraKitTests -instr-profile .build/debug/codecov/default.profdata > coverage.lcov
 ```
 
 ---
 
-## 🛠️ Estrutura do Código
+## 🛠️ Code Structure
 
 ```
 promptera/
 ├── Package.swift                     # Swift Package config
 ├── Sources/
-│   ├── PrompteraKit/                 # Biblioteca Core (reutilizável)
-│   │   ├── Models.swift              # Modelos de dados e presets
-│   │   ├── ClipboardManager.swift    # Monitoramento NSPasteboard
-│   │   ├── OllamaClient.swift        # Cliente HTTP com streaming
-│   │   ├── PromptHarness.swift       # Motor de meta-prompting (Oxair)
-│   │   └── PrompteraState.swift      # Estado reativo @MainActor
-│   ├── PrompteraApp/                 # App macOS (SwiftUI MenuBar)
-│   │   ├── PrompteraApp.swift        # Entry point MenuBarExtra
+│   ├── PrompteraKit/                 # Core Library (reusable)
+│   │   ├── Models.swift              # Data models and presets
+│   │   ├── ClipboardManager.swift    # NSPasteboard monitoring
+│   │   ├── OllamaClient.swift        # HTTP client with streaming
+│   │   ├── PromptHarness.swift       # Meta-prompting engine (Oxair)
+│   │   └── PrompteraState.swift      # Reactive @MainActor state
+│   ├── PrompteraApp/                 # macOS App (SwiftUI MenuBar)
+│   │   ├── PrompteraApp.swift        # MenuBarExtra entry point
 │   │   └── Views/
-│   │       ├── MainMenuView.swift    # Janela principal com abas
-│   │       ├── PromptGeneratorView.swift # Editor, presets e streaming
-│   │       └── ClipboardHistoryView.swift # Histórico de cópia/cola
-│   └── PrompteraCLI/                 # Interface CLI de terminal
-│       └── main.swift                # Executável de linha de comando
+│   │       ├── MainMenuView.swift    # Main window with tabs
+│   │       ├── PromptGeneratorView.swift # Editor, presets, streaming
+│   │       └── ClipboardHistoryView.swift # Copy/paste history
+│   └── PrompteraCLI/                 # Terminal CLI interface
+│       └── main.swift                # Command line executable
 ├── Tests/
-│   └── PrompteraKitTests/            # 63 testes (unitários + E2E)
+│   └── PrompteraKitTests/            # 63 tests (unit + E2E)
 ├── scripts/
-│   └── build_app.sh                  # Script de build para Promptera.app
+│   └── build_app.sh                  # Build script for Promptera.app
 ├── .github/
 │   ├── workflows/                    # CI/CD GitHub Actions
-│   └── ISSUE_TEMPLATE/               # Templates de issues
+│   └── ISSUE_TEMPLATE/               # Issue templates
 └── build/
-    └── Promptera.app                 # App compilado
+    └── Promptera.app                 # Compiled app
 ```
 
 ---
 
-## 🎯 Atalhos de Teclado
+## ⌨️ Keyboard Shortcuts
 
-| Atalho | Ação |
-|--------|------|
-| `⌘⏎` | Gerar Master Prompt |
-| `⎋` | Cancelar geração |
-| `⌘U` | Usar item do clipboard selecionado |
-| `⌘⌫` | Limpar entrada |
-| `⌘C` | Copiar prompt gerado |
+| Shortcut | Action |
+|----------|--------|
+| `⌘⏎` | Generate Master Prompt |
+| `⎋` | Cancel generation |
+| `⌘U` | Use selected clipboard item |
+| `⌘⌫` | Clear input |
+| `⌘C` | Copy generated prompt |
 
 ---
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-Adoramos contribuições! Veja nosso [Guia de Contribuição](CONTRIBUTING.md) para começar.
+We love contributions! See our [Contributing Guide](CONTRIBUTING.md) to get started.
 
 ### Good First Issues
-- [Melhorar acessibilidade](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
-- [Adicionar i18n](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
-- [Novos presets de domínio](https://github.com/seu-usuario/promptera/issues?q=label%3A%22enhancement%22)
+- [Improve accessibility](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
+- [Add i18n](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
+- [New domain presets](https://github.com/seu-usuario/promptera/issues?q=label%3A%22enhancement%22)
 
 ### Hacktoberfest
-Este projeto participa do **Hacktoberfest**! Issues marcadas com `hacktoberfest` são ideais para contribuições durante o evento.
+This project participates in **Hacktoberfest**! Issues tagged with `hacktoberfest` are ideal for contributions during the event.
 
 ---
 
-## 📄 Licença
+## 📄 License
 
-MIT License - veja [LICENSE](LICENSE) para detalhes.
-
----
-
-## 🙏 Agradecimentos
-
-- **Oxair** pela metodologia de engenharia de prompts
-- **Ollama** pela inferência local incrível
-- **Apple** pelo Silicon e frameworks nativos
-- **Comunidade Swift** pelas ferramentas open source
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 📞 Suporte
+## 🙏 Acknowledgments
 
-- 🐛 [Reportar Bug](https://github.com/seu-usuario/promptera/issues/new?template=bug_report.md)
-- 💡 [Solicitar Feature](https://github.com/seu-usuario/promptera/issues/new?template=feature_request.md)
-- 💬 [Discussões](https://github.com/seu-usuario/promptera/discussions)
+- **Oxair** for the prompt engineering methodology
+- **Ollama** for amazing local inference
+- **Apple** for Silicon and native frameworks
+- **Swift Community** for open source tools
 
 ---
 
-**Feito com ❤️ para a comunidade de desenvolvedores Apple Silicon**
+## 📞 Support
+
+- 🐛 [Report Bug](https://github.com/seu-usuario/promptera/issues/new?template=bug_report.md)
+- 💡 [Request Feature](https://github.com/seu-usuario/promptera/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/seu-usuario/promptera/discussions)
+
+---
+
+**Made with ❤️ for the Apple Silicon developer community**
