@@ -1,0 +1,27 @@
+# Build artifacts
+.build/
+build/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Package
+Package.resolved
+
+# Logs
+*.log
+
+# Test artifacts
+*.xctestresult
+coverage.lcov
