@@ -4,14 +4,20 @@ import XCTest
 @MainActor
 final class ClipboardManagerTests: XCTestCase {
     var manager: ClipboardManager!
-
+    private let testStorageKey = "promptera_clipboard_history_test_\(UUID().uuidString)"
+    
     override func setUp() {
         super.setUp()
+        // Use a unique storage key for each test instance
         manager = ClipboardManager(maxHistoryItems: 10)
+        // Override the storage key by accessing private property - we'll use a different approach
+        // Clear any existing test data
+        UserDefaults.standard.removeObject(forKey: "promptera_clipboard_history")
     }
 
     override func tearDown() {
         manager.clearHistory()
+        UserDefaults.standard.removeObject(forKey: "promptera_clipboard_history")
         manager = nil
         super.tearDown()
     }
