@@ -91,6 +91,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Run Swift Package security audit
         run: |
@@ -98,6 +100,7 @@ jobs:
         continue-on-error: true
 
       - name: Check for secrets
+        if: github.event_name != 'push' || github.event.before != '0000000000000000000000000000000000000000'
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./

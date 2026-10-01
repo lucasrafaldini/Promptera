@@ -398,7 +398,12 @@ struct SettingsView: View {
             .padding(20)
         }
         .onAppear {
-            ollamaUrlText = state.ollamaClient.baseURL.absoluteString
+            Task {
+                let url = await state.ollamaClient.baseURL
+                await MainActor.run {
+                    ollamaUrlText = url.absoluteString
+                }
+            }
         }
     }
     
