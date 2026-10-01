@@ -16,6 +16,7 @@ public struct ClipboardHistoryView: View {
             HStack {
                 Label("Histórico de Clipboard", systemImage: "doc.on.clipboard.fill")
                     .font(.headline.weight(.semibold))
+                    .foregroundStyle(PrompteraColors.textPrimary)
                 
                 Spacer()
                 
@@ -54,14 +55,14 @@ struct StatBadge: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.callout.weight(.bold))
-                .foregroundColor(.primary)
+                .foregroundStyle(PrompteraColors.textPrimary)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundStyle(PrompteraColors.textSecondary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(PrompteraColors.surfaceSecondary)
         .cornerRadius(8)
     }
 }
@@ -74,7 +75,7 @@ struct SearchActionBar: View {
             // Search Field
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
                     .font(.system(size: 14, weight: .medium))
                 
                 TextField("Buscar no histórico...", text: $clipboardManager.searchQuery)
@@ -89,7 +90,7 @@ struct SearchActionBar: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                     }
                     .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
@@ -97,11 +98,11 @@ struct SearchActionBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(PrompteraColors.surfaceSecondary)
             .cornerRadius(10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                    .stroke(PrompteraColors.borderSubtle, lineWidth: 1)
             )
             
             // Clear Button
@@ -129,24 +130,24 @@ struct EmptyStateView: View {
             
             ZStack {
                 Circle()
-                    .fill(Color.secondary.opacity(0.1))
+                    .fill(PrompteraColors.surfaceTertiary)
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: hasSearch ? "magnifyingglass" : "doc.on.clipboard")
                     .font(.system(size: 32, weight: .light))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
             }
             
             VStack(spacing: 6) {
                 Text(hasSearch ? "Nenhum resultado encontrado" : "Histórico vazio")
                     .font(.title3.weight(.medium))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(PrompteraColors.textPrimary)
                 
                 Text(hasSearch ? 
                     "Tente ajustar sua busca ou limpe o filtro." : 
                     "Copie textos em qualquer app\npara vê-los aparecer aqui automaticamente.")
                     .font(.callout)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
             
@@ -203,7 +204,7 @@ struct ClipboardItemCard: View {
             Text(item.preview)
                 .font(.system(.body, design: .default))
                 .lineLimit(4)
-                .foregroundColor(.primary)
+                .foregroundStyle(PrompteraColors.textPrimary)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -212,32 +213,32 @@ struct ClipboardItemCard: View {
                 Label {
                     Text(item.timestamp, style: .time)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 } icon: {
                     Image(systemName: "clock")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
                 Label {
                     Text("\(item.characterCount) chars")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 } icon: {
                     Image(systemName: "character")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
                 if item.lineCount > 1 {
                     Label {
                         Text("\(item.lineCount) linhas")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                     } icon: {
                         Image(systemName: "list.bullet")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                     }
                 }
                 
@@ -261,7 +262,7 @@ struct ClipboardItemCard: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .help("Remover do histórico")
-                    .tint(.red)
+                    .tint(PrompteraColors.error)
                 }
                 .opacity(isHovered || showActions ? 1 : 0.5)
                 .scaleEffect(isHovered || showActions ? 1 : 0.9)
@@ -270,14 +271,14 @@ struct ClipboardItemCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.2) : Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .fill(isHovered ? PrompteraColors.surfaceSelected : PrompteraColors.surfaceTertiary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isHovered ? Color.blue.opacity(0.3) : Color.secondary.opacity(0.1), lineWidth: 1)
+                .stroke(isHovered ? PrompteraColors.brandPrimary.opacity(0.3) : PrompteraColors.borderSubtle, lineWidth: 1)
         )
         .scaleEffect(isHovered ? 1.01 : 1.0)
-        .shadow(color: .black.opacity(isHovered ? 0.08 : 0), radius: isHovered ? 8 : 0, x: 0, y: 4)
+        .shadow(color: isHovered ? PrompteraColors.shadowBrand : PrompteraColors.shadowSubtle, radius: isHovered ? 8 : 0, x: 0, y: 4)
         .onHover { hovering in
             withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
                 isHovered = hovering

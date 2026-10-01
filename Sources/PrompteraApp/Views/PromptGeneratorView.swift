@@ -47,9 +47,9 @@ struct ConfigHeaderView: View {
             HStack(spacing: 10) {
                 Image(systemName: "cpu.fill")
                     .font(.caption)
-                    .foregroundStyle(.linearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .foregroundStyle(PrompteraColors.brandGradient)
                     .frame(width: 28, height: 28)
-                    .background(Color(NSColor.controlBackgroundColor))
+                    .background(PrompteraColors.surfaceSecondary)
                     .cornerRadius(6)
                 
                 if state.availableModels.isEmpty {
@@ -58,97 +58,99 @@ struct ConfigHeaderView: View {
                             .controlSize(.mini)
                         Text(state.isOllamaConnected ? "Carregando modelos..." : "Ollama desconectado")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                     }
                 } else {
-Menu {
-    ForEach(state.availableModels) { model in
-        Button {
-            state.updateSelectedModel(model.name)
-        } label: {
-            HStack {
-                Text(model.name)
-                if state.selectedModel == model.name {
-                    Image(systemName: "checkmark")
-                }
-                Text(model.formattedSize)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-} label: {
-    HStack(spacing: 6) {
-        Text(state.selectedModel.isEmpty ? "Selecionar modelo" : state.selectedModel)
-            .font(.callout.weight(.medium))
-            .lineLimit(1)
-            .foregroundColor(state.selectedModel.isEmpty ? .secondary : .primary)
-        Image(systemName: "chevron.up.chevron.down")
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.secondary)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
-    .background(Color(NSColor.controlBackgroundColor))
-    .cornerRadius(8)
-    .overlay(
-        RoundedRectangle(cornerRadius: 8)
-            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-    )
-}
-.menuStyle(.borderlessButton)
+                    Menu {
+                        ForEach(state.availableModels) { model in
+                            Button {
+                                state.updateSelectedModel(model.name)
+                            } label: {
+                                HStack {
+                                    Text(model.name)
+                                    if state.selectedModel == model.name {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    Text(model.formattedSize)
+                                        .foregroundStyle(PrompteraColors.textSecondary)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(state.selectedModel.isEmpty ? "Selecionar modelo" : state.selectedModel)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                                .foregroundStyle(state.selectedModel.isEmpty ? PrompteraColors.textSecondary : PrompteraColors.textPrimary)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(PrompteraColors.surfaceSecondary)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(PrompteraColors.borderDefault, lineWidth: 1)
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
                 }
                 
-// Mode Selector
-            Menu {
-                ForEach(HarnessMode.allCases) { mode in
-                    Button {
-                        state.updateSelectedMode(mode)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(mode.rawValue)
-                                Text(mode.description)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            if state.selectedMode == mode {
-                                Image(systemName: "checkmark")
+                // Mode Selector
+                Menu {
+                    ForEach(HarnessMode.allCases) { mode in
+                        Button {
+                            state.updateSelectedMode(mode)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(mode.rawValue)
+                                    Text(mode.description)
+                                        .font(.caption2)
+                                        .foregroundStyle(PrompteraColors.textSecondary)
+                                }
+                                if state.selectedMode == mode {
+                                    Image(systemName: "checkmark")
+                                }
                             }
                         }
                     }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: modeIcon(for: state.selectedMode))
+                            .font(.caption)
+                            .foregroundStyle(PrompteraColors.textSecondary)
+                        Text(state.selectedMode.rawValue)
+                            .font(.callout.weight(.medium))
+                            .lineLimit(1)
+                            .foregroundStyle(PrompteraColors.textPrimary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(PrompteraColors.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(PrompteraColors.surfaceSecondary)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(PrompteraColors.borderDefault, lineWidth: 1)
+                    )
                 }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: modeIcon(for: state.selectedMode))
-                        .font(.caption)
-                    Text(state.selectedMode.rawValue)
-                        .font(.callout.weight(.medium))
-                        .lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                )
-            }
-            .menuStyle(.borderlessButton)
-            .help(state.selectedMode.description)
+                .menuStyle(.borderlessButton)
+                .help(state.selectedMode.description)
             }
         }
         .padding(14)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(PrompteraColors.surfaceSecondary)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+                .stroke(PrompteraColors.borderSubtle, lineWidth: 1)
         )
     }
     
@@ -168,7 +170,7 @@ struct PresetsScrollView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Domínios")
                 .font(.caption.weight(.medium))
-                .foregroundColor(.secondary)
+                .foregroundStyle(PrompteraColors.textSecondary)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -204,24 +206,20 @@ struct PresetPill: View {
             .background(
                 ZStack {
                     if isSelected {
-                        LinearGradient(
-                            colors: [.blue, .purple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .clipShape(Capsule())
-                        .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                        PrompteraColors.brandGradient
+                            .clipShape(Capsule())
+                            .shadow(color: PrompteraColors.shadowBrand, radius: 4, x: 0, y: 2)
                     } else {
                         Capsule()
-                            .fill(Color(NSColor.controlBackgroundColor))
+                            .fill(PrompteraColors.surfaceSecondary)
                             .overlay(
                                 Capsule()
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                    .stroke(PrompteraColors.borderDefault, lineWidth: 1)
                             )
                     }
                 }
             )
-            .foregroundColor(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? PrompteraColors.textOnBrand : PrompteraColors.textPrimary)
             .scaleEffect(isSelected ? 1.02 : 1.0)
         }
         .buttonStyle(.plain)
@@ -239,7 +237,7 @@ struct InputAreaView: View {
             HStack {
                 Label("Entrada", systemImage: "text.cursor")
                     .font(.caption.weight(.medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
                 
                 Spacer()
                 
@@ -268,10 +266,10 @@ struct InputAreaView: View {
             
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(NSColor.textBackgroundColor))
+                    .fill(PrompteraColors.surfacePrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(isInputFocused ? Color.blue : Color.secondary.opacity(0.2), lineWidth: isInputFocused ? 2 : 1)
+                            .stroke(isInputFocused ? PrompteraColors.brandPrimary : PrompteraColors.borderDefault, lineWidth: isInputFocused ? 2 : 1)
                     )
                     .animation(.easeInOut(duration: 0.2), value: isInputFocused)
                 
@@ -285,11 +283,11 @@ struct InputAreaView: View {
                 if state.inputText.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Cole seu texto ou descreva sua ideia...")
-                            .foregroundColor(.secondary.opacity(0.6))
+                            .foregroundStyle(PrompteraColors.textTertiary)
                             .font(.callout)
                         
                         Text("Ex: \"Preciso de um script para sincronizar arquivos S3 com retry exponencial e logs estruturados em JSON\"")
-                            .foregroundColor(.secondary.opacity(0.4))
+                            .foregroundStyle(PrompteraColors.textTertiary.opacity(0.7))
                             .font(.caption)
                             .italic()
                     }
@@ -314,9 +312,10 @@ struct ActionButtonView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Gerando Master Prompt...")
                             .font(.callout.weight(.medium))
+                            .foregroundStyle(PrompteraColors.textPrimary)
                         Text(state.statusMessage)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                             .lineLimit(1)
                     }
                     
@@ -333,11 +332,11 @@ struct ActionButtonView: View {
                     .keyboardShortcut(.escape, modifiers: [])
                 }
                 .padding(16)
-                .background(Color.blue.opacity(0.1))
+                .background(PrompteraColors.brandPrimary.opacity(0.1))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                        .stroke(PrompteraColors.brandPrimary.opacity(0.3), lineWidth: 1)
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             } else {
@@ -345,7 +344,7 @@ struct ActionButtonView: View {
                     if !state.statusMessage.isEmpty && state.statusMessage != "Pronto" {
                         Label(state.statusMessage, systemImage: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundStyle(PrompteraColors.success)
                     }
                     
                     Spacer()
@@ -381,16 +380,16 @@ struct OutputAreaView: View {
             HStack {
                 Label("Master Prompt Gerado", systemImage: "doc.text.fill")
                     .font(.caption.weight(.medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
                 
                 Spacer()
                 
                 Text("\(state.outputText.count) caracteres")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(NSColor.controlBackgroundColor))
+                    .background(PrompteraColors.surfaceSecondary)
                     .cornerRadius(6)
                 
                 if !state.outputText.isEmpty {
@@ -407,24 +406,24 @@ struct OutputAreaView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .tint(state.copiedToast ? .green : .blue)
+                    .tint(state.copiedToast ? PrompteraColors.success : PrompteraColors.brandPrimary)
                 }
             }
             
             ScrollView {
                 Text(state.outputText.isEmpty ? "O Master Prompt estruturado aparecerá aqui em tempo real..." : state.outputText)
                     .font(.system(.body, design: .monospaced))
-                    .foregroundColor(state.outputText.isEmpty ? .secondary.opacity(0.5) : .primary)
+                    .foregroundStyle(state.outputText.isEmpty ? PrompteraColors.textTertiary : PrompteraColors.textPrimary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
             }
             .frame(minHeight: 150, maxHeight: 300)
-            .background(Color(NSColor.textBackgroundColor))
+            .background(PrompteraColors.surfacePrimary)
             .cornerRadius(10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                    .stroke(PrompteraColors.borderSubtle, lineWidth: 1)
             )
         }
     }
@@ -437,21 +436,21 @@ struct ErrorBanner: View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.title3)
-                .foregroundColor(.orange)
+                .foregroundStyle(PrompteraColors.warning)
             
             Text(message)
                 .font(.callout)
-                .foregroundColor(.primary)
+                .foregroundStyle(PrompteraColors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             
             Spacer()
         }
         .padding(14)
-        .background(Color.orange.opacity(0.1))
+        .background(PrompteraColors.warning.opacity(0.1))
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                .stroke(PrompteraColors.warning.opacity(0.3), lineWidth: 1)
         )
         .transition(.move(edge: .top).combined(with: .opacity))
     }

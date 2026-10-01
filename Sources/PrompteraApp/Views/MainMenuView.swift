@@ -38,16 +38,12 @@ public struct MainMenuView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles.rectangle.stack.fill")
-                        .foregroundStyle(.linearGradient(
-                            colors: [.blue, .purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
+                        .foregroundStyle(PrompteraColors.brandGradient)
                         .font(.title2)
                     Text("Promptera")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(PrompteraColors.textPrimary)
                 }
                 
                 Spacer()
@@ -67,22 +63,16 @@ public struct MainMenuView: View {
                                     .font(.caption2)
                                     .fontWeight(.medium)
                             }
-                            .foregroundColor(selectedTab == tab ? .white : .secondary)
+                            .foregroundColor(selectedTab == tab ? PrompteraColors.textOnBrand : PrompteraColors.textSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(
                                 ZStack {
                                     if selectedTab == tab {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [.blue, .purple],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
+                                            .fill(PrompteraColors.brandGradient)
                                             .matchedGeometryEffect(id: "tabSelector", in: animationNamespace)
-                                            .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                                            .shadow(color: PrompteraColors.shadowBrand, radius: 4, x: 0, y: 2)
                                     }
                                 }
                             )
@@ -94,7 +84,7 @@ public struct MainMenuView: View {
                     }
                 }
                 .padding(4)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(PrompteraColors.surfaceSecondary)
                 .cornerRadius(12)
                 .frame(width: 300)
                 
@@ -106,9 +96,9 @@ public struct MainMenuView: View {
                 } label: {
                     Image(systemName: "power")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(PrompteraColors.textSecondary)
                         .frame(width: 32, height: 32)
-                        .background(Color(NSColor.controlBackgroundColor))
+                        .background(PrompteraColors.surfaceSecondary)
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -120,8 +110,8 @@ public struct MainMenuView: View {
             .background(
                 LinearGradient(
                     colors: [
-                        Color(NSColor.windowBackgroundColor),
-                        Color(NSColor.windowBackgroundColor).opacity(0.9)
+                        PrompteraColors.surfacePrimary,
+                        PrompteraColors.surfacePrimary.opacity(0.9)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -129,6 +119,7 @@ public struct MainMenuView: View {
             )
             .overlay(alignment: .bottom) {
                 Divider()
+                    .background(PrompteraColors.borderSubtle)
             }
             
             // Tab Contents with transition
@@ -158,7 +149,7 @@ public struct MainMenuView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 600, height: 600)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(PrompteraColors.surfacePrimary)
     }
 }
 
@@ -175,9 +166,10 @@ struct SettingsView: View {
                     Text("Configurações")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundStyle(PrompteraColors.textPrimary)
                     Text("Gerencie preferências do Promptera e conexão com Ollama")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
                 // Hardware Section
@@ -186,25 +178,27 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "cpu.fill")
                                 .font(.title2)
-                                .foregroundStyle(.linearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .foregroundStyle(PrompteraColors.brandGradient)
                                 .frame(width: 40, height: 40)
-                                .background(Color(NSColor.controlBackgroundColor))
+                                .background(PrompteraColors.surfaceSecondary)
                                 .cornerRadius(10)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Apple Silicon M4")
                                     .font(.headline)
+                                    .foregroundStyle(PrompteraColors.textPrimary)
                                 Text("Memória Unificada • Metal GPU • Neural Engine")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
                             }
                         }
                         
                         Divider()
+                            .background(PrompteraColors.borderSubtle)
                         
                         Text("A inferência roda 100% local no seu Mac, sem dados saindo do dispositivo. Aproveita aceleração GPU Metal e Neural Engine via Ollama.")
                             .font(.callout)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -214,16 +208,17 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Circle()
-                                .fill(state.isOllamaConnected ? Color.green : Color.red)
+                                .fill(state.isOllamaConnected ? PrompteraColors.success : PrompteraColors.error)
                                 .frame(width: 12, height: 12)
-                                .shadow(color: (state.isOllamaConnected ? Color.green : Color.red).opacity(0.5), radius: 4)
+                                .shadow(color: (state.isOllamaConnected ? PrompteraColors.success : PrompteraColors.error).opacity(0.5), radius: 4)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.isOllamaConnected ? "Ollama Conectado" : "Ollama Não Detectado")
                                     .font(.headline)
+                                    .foregroundStyle(PrompteraColors.textPrimary)
                                 Text(state.isOllamaConnected ? "Pronto para gerar prompts" : "Execute 'ollama serve' no terminal")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
                             }
                             
                             Spacer()
@@ -241,15 +236,16 @@ struct SettingsView: View {
                         
                         // Ollama URL Configuration
                         Divider()
+                            .background(PrompteraColors.borderSubtle)
                         
                         VStack(alignment: .leading, spacing: 8) {
                             Text("URL do Servidor Ollama")
                                 .font(.caption.weight(.medium))
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(PrompteraColors.textSecondary)
                             
                             HStack(spacing: 8) {
                                 Image(systemName: "link")
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
                                     .frame(width: 20)
                                 
                                 TextField("http://127.0.0.1:11434", text: $ollamaUrlText)
@@ -275,21 +271,22 @@ struct SettingsView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color(NSColor.controlBackgroundColor))
+                            .background(PrompteraColors.surfaceSecondary)
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                    .stroke(PrompteraColors.borderDefault, lineWidth: 1)
                             )
                         }
                         
                         if !state.availableModels.isEmpty {
                             Divider()
+                                .background(PrompteraColors.borderSubtle)
                             
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Modelos Disponíveis")
                                     .font(.caption.weight(.medium))
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
                                 
                                 ForEach(state.availableModels) { model in
                                     ModelRow(model: model, isSelected: state.selectedModel == model.name) {
@@ -299,17 +296,18 @@ struct SettingsView: View {
                             }
                         } else if state.isOllamaConnected {
                             Divider()
+                                .background(PrompteraColors.borderSubtle)
                             
                             HStack {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
+                                    .foregroundStyle(PrompteraColors.warning)
                                 Text("Nenhum modelo instalado. Use 'ollama pull <modelo>' no terminal.")
                                     .font(.callout)
-                                    .foregroundColor(.secondary)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
                                 Spacer()
                             }
                             .padding(12)
-                            .background(Color.orange.opacity(0.1))
+                            .background(PrompteraColors.warning.opacity(0.1))
                             .cornerRadius(8)
                         }
                     }
@@ -320,10 +318,11 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Label("Geração → Auto-Crítica → Refinamento", systemImage: "arrow.right")
                             .font(.callout.weight(.medium))
+                            .foregroundStyle(PrompteraColors.textPrimary)
                         
                         Text("O Promptera implementa a metodologia Oxair em 3 etapas:")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                         
                         VStack(alignment: .leading, spacing: 6) {
                             MethodStep(number: "1", title: "Geração", description: "Constrói rascunho estruturado com papel, objetivo e guardrails")
@@ -338,9 +337,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Promptera v1.0.0")
                             .font(.headline)
+                            .foregroundStyle(PrompteraColors.textPrimary)
                         Text("Meta-Prompt Harness para macOS\nDesenvolvido para Apple Silicon com SwiftUI nativo")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                     }
                 }
                 
@@ -349,7 +349,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Faça backup dos seus prompts, histórico de clipboard e configurações.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(PrompteraColors.textSecondary)
                         
                         HStack(spacing: 12) {
                             Button {
@@ -372,6 +372,7 @@ struct SettingsView: View {
                         }
                         
                         Divider()
+                            .background(PrompteraColors.borderSubtle)
                         
                         HStack(spacing: 12) {
                             Button {
@@ -486,16 +487,16 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: icon)
                 .font(.headline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(PrompteraColors.textPrimary)
             
             content
         }
         .padding(16)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(PrompteraColors.surfaceSecondary)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+                .stroke(PrompteraColors.borderSubtle, lineWidth: 1)
         )
     }
 }
@@ -510,15 +511,15 @@ struct ModelRow: View {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundColor(isSelected ? .blue : .secondary)
+                    .foregroundColor(isSelected ? PrompteraColors.brandPrimary : PrompteraColors.textSecondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.name)
                         .font(.system(.callout, design: .monospaced))
-                        .foregroundColor(.primary)
+                        .foregroundStyle(PrompteraColors.textPrimary)
                     Text(model.formattedSize)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
                 Spacer()
@@ -526,11 +527,11 @@ struct ModelRow: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                    .fill(isSelected ? PrompteraColors.brandPrimary.opacity(0.1) : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.blue : Color.secondary.opacity(0.2), lineWidth: 1)
+                    .stroke(isSelected ? PrompteraColors.brandPrimary : PrompteraColors.borderDefault, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -546,16 +547,17 @@ struct MethodStep: View {
         HStack(alignment: .top, spacing: 10) {
             Text(number)
                 .font(.caption.weight(.bold))
-                .foregroundColor(.white)
+                .foregroundStyle(PrompteraColors.textOnBrand)
                 .frame(width: 22, height: 22)
-                .background(Circle().fill(Color.blue))
+                .background(Circle().fill(PrompteraColors.brandPrimary))
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.callout.weight(.medium))
+                    .foregroundStyle(PrompteraColors.textPrimary)
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(PrompteraColors.textSecondary)
             }
         }
     }
