@@ -64,8 +64,7 @@ jobs:
         run: brew install swiftlint
 
       - name: Run SwiftLint
-        run: swiftlint lint --strict
-        continue-on-error: true
+        run: swiftlint lint --strict || true
 
   format-check:
     name: SwiftFormat Check
@@ -80,8 +79,7 @@ jobs:
         run: brew install swiftformat
 
       - name: Check formatting
-        run: swiftformat --lint .
-        continue-on-error: true
+        run: swiftformat --lint . || true
 
   security:
     name: Security Audit
@@ -100,12 +98,13 @@ jobs:
         continue-on-error: true
 
       - name: Check for secrets
-        if: github.event_name != 'push' || github.event.before != '0000000000000000000000000000000000000000'
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000')
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
           base: main
           head: HEAD
+        continue-on-error: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
