@@ -261,7 +261,7 @@ public final class PrompteraState: ObservableObject {
         }
     }
     
-    public func exportData() throws -> Data {
+    public func exportData(encrypted: Bool = true) throws -> Data {
         let prompts = [
             ExportData.PromptExport(
                 input: inputText,
@@ -290,13 +290,35 @@ public final class PrompteraState: ObservableObject {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(export)
+        let plainData = try encoder.encode(export)
+        
+        if encrypted {
+            let encryptionService = EncryptionService.shared
+            let payload = try encryptionService.encryptToPayload(plainData)
+            let payloadEncoder = JSONEncoder()
+            payloadEncoder.dateEncodingStrategy = .iso8601
+            payloadEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return try payloadEncoder.encode(payload)
+        }
+        
+        return plainData
     }
     
-    public func importData(_ data: Data) throws {
+    public func importData(_ data: Data, encrypted: Bool = true) throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let export = try decoder.decode(ExportData.self, from: data)
+        
+        let export: ExportData
+        
+        if encrypted {
+            // Try to decrypt first
+            let encryptionService = EncryptionService.shared
+            let payload = try decoder.decode(EncryptionService.EncryptedPayload.self, from: data)
+            let decryptedData = try encryptionService.decryptFromPayload(payload)
+            export = try decoder.decode(ExportData.self, from: decryptedData)
+        } else {
+            export = try decoder.decode(ExportData.self, from: data)
+        }
         
         // Import clipboard history (merge, avoiding duplicates)
         var existingContent = Set(clipboardManager.history.map { $0.content })

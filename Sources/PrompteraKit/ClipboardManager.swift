@@ -12,6 +12,7 @@ public final class ClipboardManager: ObservableObject {
     private var monitorTimer: Timer?
     private let maxHistoryItems: Int
     private let storageKey = "promptera_clipboard_history"
+    private let encryptionService = EncryptionService.shared
     
     public init(maxHistoryItems: Int = 50) {
         self.maxHistoryItems = maxHistoryItems
@@ -110,19 +111,23 @@ public final class ClipboardManager: ObservableObject {
     private func persistHistory() {
         do {
             let data = try JSONEncoder().encode(history)
-            UserDefaults.standard.set(data, forKey: storageKey)
+            let encrypted = try encryptionService.encrypt(data)
+            UserDefaults.standard.set(encrypted, forKey: storageKey)
         } catch {
             // Non-critical persistence failure
         }
     }
     
     private func loadPersistedHistory() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
+        guard let encryptedData = UserDefaults.standard.data(forKey: storageKey) else { return }
         do {
+            let data = try encryptionService.decrypt(encryptedData)
             let loaded = try JSONDecoder().decode([ClipboardItem].self, from: data)
             self.history = loaded
         } catch {
+            // If decryption fails (e.g., key rotated), clear history
             self.history = []
+            UserDefaults.standard.removeObject(forKey: storageKey)
         }
     }
 }
