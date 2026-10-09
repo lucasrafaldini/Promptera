@@ -26,20 +26,22 @@ public enum PrompteraTab: String, CaseIterable, Identifiable {
 }
 
 public struct MainMenuView: View {
-    @StateObject private var state = PrompteraState()
-    @State private var selectedTab: PrompteraTab = .generator
+    @ObservedObject var state: PrompteraState
+    @AppStorage("promptera_selected_tab") private var selectedTab: PrompteraTab = .generator
     @Namespace private var animationNamespace
     
-    public init() {}
+    private let tabAnimation = Animation.spring(response: 0.25, dampingFraction: 0.85)
+    
+    public init(state: PrompteraState) {
+        self.state = state
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
             // App Header
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: "sparkles.rectangle.stack.fill")
-                        .foregroundStyle(PrompteraColors.brandGradient)
-                        .font(.title2)
+                    PrompteraLogo(size: 24)
                     Text("Promptera")
                         .font(.title3)
                         .fontWeight(.bold)
@@ -52,7 +54,7 @@ public struct MainMenuView: View {
                 HStack(spacing: 4) {
                     ForEach(PrompteraTab.allCases) { tab in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(tabAnimation) {
                                 selectedTab = tab
                             }
                         } label: {
@@ -127,36 +129,32 @@ public struct MainMenuView: View {
                 switch selectedTab {
                 case .generator:
                     PromptGeneratorView(state: state)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
                 case .clipboard:
                     ClipboardHistoryView(clipboardManager: state.clipboardManager, state: state)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
                 case .settings:
                     SettingsView(state: state)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedTab)
+            .transition(.opacity.combined(with: .offset(y: 6)))
+            .animation(tabAnimation, value: selectedTab)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 600, height: 600)
         .background(PrompteraColors.surfacePrimary)
+        .tint(PrompteraColors.brandPrimary)
+        .task { await state.refreshModelsIfNeeded() }
+        // Fires every time the menu bar popover opens.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            Task { await state.refreshModelsIfNeeded() }
+        }
     }
 }
 
 struct SettingsView: View {
     @ObservedObject var state: PrompteraState
     @State private var ollamaUrlText: String = "http://127.0.0.1:11434"
-    @State private var isTesting: Bool = false
+    @State private var urlError: String?
+    private let themeStore = ThemeStore.shared
     
     var body: some View {
         ScrollView {
@@ -172,6 +170,41 @@ struct SettingsView: View {
                         .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
+                // Appearance Section
+                SettingsSection(title: "Aparência", icon: "paintpalette") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Picker("Modo", selection: Binding(
+                            get: { themeStore.appearance },
+                            set: { newValue in
+                                themeStore.appearance = newValue
+                                themeStore.applyAppearance()
+                            }
+                        )) {
+                            ForEach(PrompteraAppearance.allCases) { appearance in
+                                Label(appearance.displayName, systemImage: appearance.icon)
+                                    .tag(appearance)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Tema de Cores")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                            
+                            HStack(spacing: 10) {
+                                ForEach(PrompteraTheme.allCases) { theme in
+                                    ThemeSwatch(theme: theme, isSelected: themeStore.theme == theme) {
+                                        withAnimation(.easeInOut(duration: 0.25)) {
+                                            themeStore.theme = theme
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Hardware Section
                 SettingsSection(title: "Hardware & Aceleração", icon: "apple.logo") {
                     VStack(alignment: .leading, spacing: 12) {
@@ -184,10 +217,10 @@ struct SettingsView: View {
                                 .cornerRadius(10)
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Apple Silicon M4")
+                                Text(SystemInfo.chipName)
                                     .font(.headline)
                                     .foregroundStyle(PrompteraColors.textPrimary)
-                                Text("Memória Unificada • Metal GPU • Neural Engine")
+                                Text("\(SystemInfo.memoryDescription) de Memória Unificada • Metal GPU • Neural Engine")
                                     .font(.caption)
                                     .foregroundStyle(PrompteraColors.textSecondary)
                             }
@@ -226,12 +259,16 @@ struct SettingsView: View {
                             Button {
                                 Task { await state.refreshModels() }
                             } label: {
-                                Label("Recarregar", systemImage: "arrow.clockwise")
-                                    .font(.callout.weight(.medium))
+                                if state.isRefreshingModels {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Label("Recarregar", systemImage: "arrow.clockwise")
+                                        .font(.callout.weight(.medium))
+                                }
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
-                            .disabled(state.isGenerating)
+                            .disabled(state.isGenerating || state.isRefreshingModels)
                         }
                         
                         // Ollama URL Configuration
@@ -251,18 +288,9 @@ struct SettingsView: View {
                                 TextField("http://127.0.0.1:11434", text: $ollamaUrlText)
                                     .textFieldStyle(.plain)
                                     .font(.system(.callout, design: .monospaced))
-                                    .onSubmit {
-                                        if let url = URL(string: ollamaUrlText) {
-                                            state.setOllamaBaseURL(url)
-                                        }
-                                    }
+                                    .onSubmit(applyURL)
                                 
-                                Button {
-                                    if let url = URL(string: ollamaUrlText) {
-                                        state.setOllamaBaseURL(url)
-                                        Task { await state.refreshModels() }
-                                    }
-                                } label: {
+                                Button(action: applyURL) {
                                     Label("Aplicar", systemImage: "checkmark")
                                         .font(.callout.weight(.medium))
                                 }
@@ -275,8 +303,14 @@ struct SettingsView: View {
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(PrompteraColors.borderDefault, lineWidth: 1)
+                                    .stroke(urlError == nil ? PrompteraColors.borderDefault : PrompteraColors.error, lineWidth: 1)
                             )
+                            
+                            if let urlError {
+                                Text(urlError)
+                                    .font(.caption)
+                                    .foregroundStyle(PrompteraColors.error)
+                            }
                         }
                         
                         if !state.availableModels.isEmpty {
@@ -334,13 +368,16 @@ struct SettingsView: View {
                 
                 // About Section
                 SettingsSection(title: "Sobre", icon: "info.circle") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Promptera v1.0.0")
-                            .font(.headline)
-                            .foregroundStyle(PrompteraColors.textPrimary)
-                        Text("Meta-Prompt Harness para macOS\nDesenvolvido para Apple Silicon com SwiftUI nativo")
-                            .font(.caption)
-                            .foregroundStyle(PrompteraColors.textSecondary)
+                    HStack(spacing: 12) {
+                        PrompteraLogo(size: 44)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Promptera v\(SystemInfo.appVersion)")
+                                .font(.headline)
+                                .foregroundStyle(PrompteraColors.textPrimary)
+                            Text("Meta-Prompt Harness para macOS\nDesenvolvido para Apple Silicon com SwiftUI nativo")
+                                .font(.caption)
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                        }
                     }
                 }
                 
@@ -408,20 +445,21 @@ struct SettingsView: View {
         }
     }
     
-    private func exportData() {
-        do {
-            let data = try state.exportData()
-            let panel = NSSavePanel()
-            panel.allowedContentTypes = [.json]
-            panel.nameFieldStringValue = "promptera-backup-\(DateFormatter.iso8601.string(from: Date())).json"
-            panel.begin { response in
-                if response == .OK, let url = panel.url {
-                    try? data.write(to: url)
-                }
-            }
-        } catch {
-            state.errorMessage = "Erro ao exportar: \(error.localizedDescription)"
+    private func applyURL() {
+        let trimmed = ollamaUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              url.host != nil else {
+            urlError = "URL inválida. Use o formato http://host:porta"
+            return
         }
+        urlError = nil
+        ollamaUrlText = trimmed
+        Task { await state.applyOllamaBaseURL(url) }
+    }
+    
+    private func exportData() {
+        export(prefix: "promptera-backup") { try state.exportData() }
     }
     
     private func importData() {
@@ -429,46 +467,89 @@ struct SettingsView: View {
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.begin { response in
-            if response == .OK, let url = panel.url,
-               let data = try? Data(contentsOf: url) {
-                do {
-                    try state.importData(data)
-                    state.statusMessage = "Dados importados com sucesso!"
-                } catch {
-                    state.errorMessage = "Erro ao importar: \(error.localizedDescription)"
-                }
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                let data = try Data(contentsOf: url)
+                try state.importData(data)
+                state.statusMessage = "Dados importados com sucesso!"
+            } catch {
+                state.errorMessage = "Erro ao importar: \(error.localizedDescription)"
             }
         }
     }
     
     private func exportPromptsOnly() {
-        do {
-            let data = try state.exportData()
-            let panel = NSSavePanel()
-            panel.allowedContentTypes = [.json]
-            panel.nameFieldStringValue = "promptera-prompts-\(DateFormatter.iso8601.string(from: Date())).json"
-            panel.begin { response in
-                if response == .OK, let url = panel.url {
-                    try? data.write(to: url)
-                }
-            }
-        } catch {
-            state.errorMessage = "Erro ao exportar prompts: \(error.localizedDescription)"
-        }
+        export(prefix: "promptera-prompts") { try state.exportData(includeClipboard: false) }
     }
     
     private func exportClipboardOnly() {
-        let data = try? JSONEncoder().encode(state.clipboardManager.history)
-        if let data = data {
-            let panel = NSSavePanel()
-            panel.allowedContentTypes = [.json]
-            panel.nameFieldStringValue = "promptera-clipboard-\(DateFormatter.iso8601.string(from: Date())).json"
-            panel.begin { response in
-                if response == .OK, let url = panel.url {
-                    try? data.write(to: url)
-                }
+        // Encrypted like the full backup, and re-importable through "Importar".
+        export(prefix: "promptera-clipboard") { try state.exportData(includePrompts: false) }
+    }
+    
+    private func export(prefix: String, makeData: () throws -> Data) {
+        let data: Data
+        do {
+            data = try makeData()
+        } catch {
+            state.errorMessage = "Erro ao exportar: \(error.localizedDescription)"
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "\(prefix)-\(DateFormatter.iso8601.string(from: Date())).json"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try data.write(to: url, options: .atomic)
+                state.statusMessage = "Exportado para \(url.lastPathComponent)"
+            } catch {
+                state.errorMessage = "Erro ao salvar arquivo: \(error.localizedDescription)"
             }
         }
+    }
+}
+
+struct ThemeSwatch: View {
+    let theme: PrompteraTheme
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: theme.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 36, height: 36)
+                        .shadow(color: theme.primary.opacity(isSelected ? 0.45 : 0.2), radius: isSelected ? 6 : 3, y: 2)
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(3)
+                .overlay(
+                    Circle().stroke(isSelected ? theme.primary : Color.clear, lineWidth: 2)
+                )
+                .scaleEffect(isHovered && !isSelected ? 1.06 : 1)
+                
+                Text(theme.displayName)
+                    .font(.caption2.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? PrompteraColors.textPrimary : PrompteraColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) { isHovered = hovering }
+        }
+        .help("Tema \(theme.displayName)")
+        .accessibilityLabel("Tema \(theme.displayName)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

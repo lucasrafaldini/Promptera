@@ -30,7 +30,11 @@ public struct PromptGeneratorView: View {
                 
                 // Error Display
                 if let error = state.errorMessage {
-                    ErrorBanner(message: error)
+                    ErrorBanner(
+                        message: error,
+                        onRetry: state.isOllamaConnected ? nil : { Task { await state.refreshModels() } },
+                        onDismiss: { withAnimation { state.dismissError() } }
+                    )
                 }
             }
             .padding(16)
@@ -97,6 +101,7 @@ struct ConfigHeaderView: View {
                         )
                     }
                     .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 }
                 
                 // Mode Selector
@@ -142,6 +147,7 @@ struct ConfigHeaderView: View {
                     )
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .help(state.selectedMode.description)
             }
         }
@@ -230,6 +236,13 @@ struct PresetPill: View {
 
 struct InputAreaView: View {
     @ObservedObject var state: PrompteraState
+    // Observed directly so "Colar do Clipboard" enables as soon as something is copied.
+    @ObservedObject private var clipboardManager: ClipboardManager
+    
+    init(state: PrompteraState) {
+        self.state = state
+        self.clipboardManager = state.clipboardManager
+    }
     @FocusState private var isInputFocused: Bool
     
     var body: some View {
@@ -250,7 +263,7 @@ struct InputAreaView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(state.clipboardManager.latestItem == nil)
+                .disabled(clipboardManager.latestItem == nil)
                 
                 if !state.inputText.isEmpty {
                     Button {
@@ -342,9 +355,14 @@ struct ActionButtonView: View {
             } else {
                 HStack {
                     if !state.statusMessage.isEmpty && state.statusMessage != "Pronto" {
-                        Label(state.statusMessage, systemImage: "checkmark.circle.fill")
+                        let isSuccess = state.statusMessage.hasPrefix("Prompt concluído")
+                            || state.statusMessage.hasPrefix("Pronto")
+                            || state.statusMessage.hasPrefix("Exportado")
+                            || state.statusMessage.hasPrefix("Dados importados")
+                        Label(state.statusMessage, systemImage: isSuccess ? "checkmark.circle.fill" : "info.circle")
                             .font(.caption)
-                            .foregroundStyle(PrompteraColors.success)
+                            .foregroundStyle(isSuccess ? PrompteraColors.success : PrompteraColors.textSecondary)
+                            .lineLimit(2)
                     }
                     
                     Spacer()
@@ -361,8 +379,7 @@ struct ActionButtonView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(BrandButtonStyle(cornerRadius: 12))
                     .disabled(state.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.selectedModel.isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 }
@@ -404,26 +421,35 @@ struct OutputAreaView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .tint(state.copiedToast ? PrompteraColors.success : PrompteraColors.brandPrimary)
+                    .buttonStyle(BrandButtonStyle(cornerRadius: 8))
                 }
             }
             
-            ScrollView {
-                Text(state.outputText.isEmpty ? "O Master Prompt estruturado aparecerá aqui em tempo real..." : state.outputText)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(state.outputText.isEmpty ? PrompteraColors.textTertiary : PrompteraColors.textPrimary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(state.outputText.isEmpty ? "O Master Prompt estruturado aparecerá aqui em tempo real..." : state.outputText)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(state.outputText.isEmpty ? PrompteraColors.textTertiary : PrompteraColors.textPrimary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                    Color.clear
+                        .frame(height: 1)
+                        .id("outputBottom")
+                }
+                // Follow the stream while it is being generated.
+                .onChange(of: state.outputText) {
+                    if state.isGenerating {
+                        proxy.scrollTo("outputBottom", anchor: .bottom)
+                    }
+                }
             }
             .frame(minHeight: 150, maxHeight: 300)
             .background(PrompteraColors.surfacePrimary)
             .cornerRadius(10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(PrompteraColors.borderSubtle, lineWidth: 1)
+                    .stroke(state.isGenerating ? PrompteraColors.brandPrimary.opacity(0.5) : PrompteraColors.borderSubtle, lineWidth: 1)
             )
         }
     }
@@ -431,6 +457,8 @@ struct OutputAreaView: View {
 
 struct ErrorBanner: View {
     let message: String
+    var onRetry: (() -> Void)?
+    var onDismiss: (() -> Void)?
     
     var body: some View {
         HStack(spacing: 10) {
@@ -444,6 +472,25 @@ struct ErrorBanner: View {
                 .fixedSize(horizontal: false, vertical: true)
             
             Spacer()
+            
+            if let onRetry {
+                Button("Tentar novamente", action: onRetry)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(PrompteraColors.textSecondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Dispensar")
+                .accessibilityLabel("Dispensar aviso")
+            }
         }
         .padding(14)
         .background(PrompteraColors.warning.opacity(0.1))

@@ -26,6 +26,15 @@ public enum OllamaError: LocalizedError {
 public actor OllamaClient {
     public var baseURL: URL
     private let session: URLSession
+
+    /// How long Ollama keeps the model resident in (unified) memory after a request.
+    /// Longer than Ollama's 5-minute default so follow-up generations skip the model load.
+    public static let keepAlive = "30m"
+
+    private struct StreamChunk: Decodable {
+        let response: String?
+        let done: Bool?
+    }
     
     public init(baseURL: URL = URL(string: "http://127.0.0.1:11434")!) {
         self.baseURL = baseURL
@@ -106,6 +115,7 @@ public actor OllamaClient {
                     "model": model,
                     "prompt": prompt,
                     "stream": true,
+                    "keep_alive": OllamaClient.keepAlive,
                     "options": [
                         "temperature": temperature
                     ]
@@ -127,16 +137,12 @@ public actor OllamaClient {
                         return
                     }
                     
-                    struct StreamChunk: Decodable {
-                        let response: String?
-                        let done: Bool?
-                    }
-                    
+                    let decoder = JSONDecoder()
                     for try await line in asyncBytes.lines {
                         guard !Task.isCancelled else { break }
-                        guard let data = line.data(using: .utf8), !data.isEmpty else { continue }
+                        guard !line.isEmpty else { continue }
                         
-                        if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
+                        if let chunk = try? decoder.decode(StreamChunk.self, from: Data(line.utf8)) {
                             if let piece = chunk.response, !piece.isEmpty {
                                 continuation.yield(piece)
                             }
@@ -155,6 +161,18 @@ public actor OllamaClient {
                 task.cancel()
             }
         }
+    }
+    
+    /// Loads the model into memory ahead of time (an empty prompt makes Ollama load
+    /// the weights and return immediately), so the first real generation starts fast.
+    public func warmUp(model: String) async {
+        let url = baseURL.appendingPathComponent("api/generate")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = ["model": model, "keep_alive": OllamaClient.keepAlive]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        _ = try? await session.data(for: request)
     }
     
     public func generateComplete(

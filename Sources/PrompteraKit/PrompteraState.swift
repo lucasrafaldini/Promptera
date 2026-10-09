@@ -15,12 +15,18 @@ public final class PrompteraState: ObservableObject {
     @Published public var errorMessage: String? = nil
     @Published public var copiedToast: Bool = false
     @Published public var isOllamaConnected: Bool = false
+    public var isRefreshingModels: Bool { activeRefreshes > 0 }
+    @Published private var activeRefreshes = 0
     
     public let clipboardManager: ClipboardManager
     public let ollamaClient: OllamaClient
     public let promptHarness: PromptHarness
     
     private var generationTask: Task<Void, Never>?
+    private var currentGenerationID: UUID?
+    private var lastWarmUp: (model: String, date: Date)?
+    /// UI updates during streaming are coalesced to this interval instead of one per token.
+    private let streamFlushInterval: Duration = .milliseconds(40)
     private let settingsStorage = UserDefaults.standard
     private let selectedModelKey = "promptera_selected_model"
     private let selectedPresetKey = "promptera_selected_preset"
@@ -29,22 +35,29 @@ public final class PrompteraState: ObservableObject {
     
     public init(
         clipboardManager: ClipboardManager? = nil,
-        ollamaClient: OllamaClient = OllamaClient()
+        ollamaClient: OllamaClient = OllamaClient(),
+        autoRefresh: Bool = true
     ) {
         let cm = clipboardManager ?? ClipboardManager()
         self.clipboardManager = cm
         self.ollamaClient = ollamaClient
         self.promptHarness = PromptHarness(ollamaClient: ollamaClient)
         
-        // Load persisted settings
-        loadPersistedSettings()
+        // Load persisted settings, then refresh using the saved server URL
+        // (sequenced, so the first request never goes to the default URL by mistake).
+        let savedURL = loadPersistedSettings()
+        guard autoRefresh else { return }
         
         Task {
+            if let savedURL {
+                await ollamaClient.setBaseURL(savedURL)
+            }
             await refreshModels()
         }
     }
     
-    private func loadPersistedSettings() {
+    @discardableResult
+    private func loadPersistedSettings() -> URL? {
         // Load selected model
         if let savedModel = settingsStorage.string(forKey: selectedModelKey) {
             self.selectedModel = savedModel
@@ -63,12 +76,10 @@ public final class PrompteraState: ObservableObject {
         }
         
         // Load Ollama base URL
-        if let savedURL = settingsStorage.string(forKey: ollamaBaseURLKey),
-           let url = URL(string: savedURL) {
-            Task {
-                await self.ollamaClient.setBaseURL(url)
-            }
+        if let savedURL = settingsStorage.string(forKey: ollamaBaseURLKey) {
+            return URL(string: savedURL)
         }
+        return nil
     }
     
     private func persistSelectedModel() {
@@ -84,13 +95,46 @@ public final class PrompteraState: ObservableObject {
     }
     
     public func setOllamaBaseURL(_ url: URL) {
+        // Kept for API compatibility; prefer `applyOllamaBaseURL(_:)`.
         Task {
             await ollamaClient.setBaseURL(url)
         }
         settingsStorage.set(url.absoluteString, forKey: ollamaBaseURLKey)
     }
     
+    /// Saves the URL, points the client at it and reloads the model list, in order.
+    public func applyOllamaBaseURL(_ url: URL) async {
+        settingsStorage.set(url.absoluteString, forKey: ollamaBaseURLKey)
+        await ollamaClient.setBaseURL(url)
+        await refreshModels()
+    }
+    
+    /// Called whenever the popover opens: reconnects if Ollama was started after the
+    /// app, and pre-loads the selected model so the first generation starts faster.
+    public func refreshModelsIfNeeded() async {
+        if !isOllamaConnected || availableModels.isEmpty {
+            await refreshModels()
+        }
+        warmUpSelectedModel()
+    }
+    
+    private func warmUpSelectedModel() {
+        guard isOllamaConnected, !selectedModel.isEmpty, !isGenerating else { return }
+        // Ollama keeps the model loaded for `OllamaClient.keepAlive`; don't re-send before that.
+        if let last = lastWarmUp, last.model == selectedModel, Date().timeIntervalSince(last.date) < 20 * 60 {
+            return
+        }
+        lastWarmUp = (selectedModel, Date())
+        let model = selectedModel
+        let client = ollamaClient
+        Task.detached(priority: .utility) {
+            await client.warmUp(model: model)
+        }
+    }
+    
     public func refreshModels() async {
+        activeRefreshes += 1
+        defer { activeRefreshes -= 1 }
         statusMessage = "Verificando modelos locais..."
         let available = await ollamaClient.isAvailable()
         self.isOllamaConnected = available
@@ -155,6 +199,7 @@ public final class PrompteraState: ObservableObject {
     public func cancelGeneration() {
         generationTask?.cancel()
         generationTask = nil
+        currentGenerationID = nil
         isGenerating = false
         statusMessage = "Geração cancelada"
     }
@@ -175,13 +220,25 @@ public final class PrompteraState: ObservableObject {
         statusMessage = "Iniciando harness..."
         
         generationTask?.cancel()
+        let generationID = UUID()
+        currentGenerationID = generationID
+        let input = inputText
+        let preset = selectedPreset
+        let mode = selectedMode
+        let model = selectedModel
+        let flushInterval = streamFlushInterval
+        
         generationTask = Task {
+            let clock = ContinuousClock()
+            var pending = ""
+            var lastFlush = clock.now
+            
             do {
                 let stream = await promptHarness.executeHarnessStream(
-                    rawInput: inputText,
-                    preset: selectedPreset,
-                    mode: selectedMode,
-                    model: selectedModel
+                    rawInput: input,
+                    preset: preset,
+                    mode: mode,
+                    model: model
                 )
                 
                 for try await event in stream {
@@ -191,21 +248,39 @@ public final class PrompteraState: ObservableObject {
                     case .stageChanged(let stage):
                         self.statusMessage = stage
                     case .tokenYielded(let token):
-                        self.outputText += token
+                        // Batch tokens: re-rendering a growing Text per token is O(n²).
+                        pending += token
+                        if clock.now - lastFlush >= flushInterval {
+                            self.outputText += pending
+                            pending = ""
+                            lastFlush = clock.now
+                        }
                     case .finished(let finalResult):
+                        pending = ""
                         self.outputText = finalResult
                         self.statusMessage = "Prompt concluído com sucesso!"
                     }
                 }
             } catch {
-                if !Task.isCancelled {
+                if !Task.isCancelled && self.currentGenerationID == generationID {
                     self.errorMessage = error.localizedDescription
                     self.statusMessage = "Falha na geração"
                 }
             }
+            
+            // A newer generation (or a cancel) owns the state now.
+            guard self.currentGenerationID == generationID else { return }
+            if !pending.isEmpty {
+                self.outputText += pending
+            }
             self.isGenerating = false
             self.generationTask = nil
+            self.currentGenerationID = nil
         }
+    }
+    
+    public func dismissError() {
+        errorMessage = nil
     }
     
     public func copyOutput() {
@@ -224,6 +299,7 @@ public final class PrompteraState: ObservableObject {
     public func updateSelectedModel(_ model: String) {
         selectedModel = model
         persistSelectedModel()
+        warmUpSelectedModel()
     }
     
     public func updateSelectedPreset(_ preset: HarnessPreset) {
@@ -261,8 +337,12 @@ public final class PrompteraState: ObservableObject {
         }
     }
     
-    public func exportData(encrypted: Bool = true) throws -> Data {
-        let prompts = [
+    public func exportData(
+        encrypted: Bool = true,
+        includePrompts: Bool = true,
+        includeClipboard: Bool = true
+    ) throws -> Data {
+        let prompts = (!includePrompts || (outputText.isEmpty && inputText.isEmpty)) ? [] : [
             ExportData.PromptExport(
                 input: inputText,
                 output: outputText,
@@ -283,7 +363,7 @@ public final class PrompteraState: ObservableObject {
             version: "1.0",
             exportedAt: Date(),
             prompts: prompts,
-            clipboardHistory: clipboardManager.history,
+            clipboardHistory: includeClipboard ? clipboardManager.history : [],
             settings: settings
         )
         
@@ -320,14 +400,9 @@ public final class PrompteraState: ObservableObject {
             export = try decoder.decode(ExportData.self, from: data)
         }
         
-        // Import clipboard history (merge, avoiding duplicates)
-        var existingContent = Set(clipboardManager.history.map { $0.content })
-        for item in export.clipboardHistory.reversed() {
-            if !existingContent.contains(item.content) {
-                clipboardManager.copyToClipboard(item.content)
-                existingContent.insert(item.content)
-            }
-        }
+        // Import clipboard history (merge, avoiding duplicates) without overwriting
+        // whatever the user currently has on the system pasteboard.
+        clipboardManager.mergeItems(export.clipboardHistory)
         
         // Import settings
         if let preset = HarnessPreset.presets.first(where: { $0.id == export.settings.selectedPreset }) {
@@ -336,9 +411,9 @@ public final class PrompteraState: ObservableObject {
         if let mode = HarnessMode(rawValue: export.settings.selectedMode) {
             updateSelectedMode(mode)
         }
-        // Note: Model selection requires the model to be available
-        if export.settings.selectedModel.isEmpty == false {
-            // Will be applied when models are refreshed
+        // Apply the model only if it's installed here; otherwise keep the current one.
+        if availableModels.contains(where: { $0.name == export.settings.selectedModel }) {
+            updateSelectedModel(export.settings.selectedModel)
         }
         
         // Import latest prompt if available

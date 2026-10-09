@@ -1,3 +1,5 @@
+<p align="center"><img src="Resources/AppIcon.png" width="128" alt="Promptera"></p>
+
 # 🪄 Promptera
 
 **Promptera** es una aplicación nativa para macOS que vive directamente en tu **Menu Bar**, integrando un gestor de **Historial de Clipboard (Copiar-Pegar)** con un **Harness de Ingeniería de Prompts** basado en la metodología del artículo de referencia (*Oxair*: *"How to Create Your Own AI Prompt Generator That Works Forever"*).
@@ -11,6 +13,19 @@ Promptera está diseñado para ejecutarse **100% local y privado** con aceleraci
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **🌐 Idiomas / Languages / Idiomas:** [English](README.md) • [Português](README.pt.md) • [Español](README.es.md)
+
+---
+
+## 📸 Capturas de Pantalla
+
+Descarga el `.dmg` más reciente en [Releases](https://github.com/lucasrafaldini/Promptera/releases/latest).
+
+| | |
+|---|---|
+| ![Generador — Aurora (oscuro)](docs/screenshots/01-gerador-aurora-escuro.png) | ![Historial de clipboard — Océano (claro)](docs/screenshots/03-clipboard-oceano-claro.png) |
+| *Generador — Aurora (oscuro)* | *Historial de clipboard — Océano (claro)* |
+| ![Configuración con 5 temas de color — Atardecer (oscuro)](docs/screenshots/04-configuracoes-temas-por-do-sol-escuro.png) | ![Generador — Aurora (claro)](docs/screenshots/02-gerador-aurora-claro.png) |
+| *Configuración con 5 temas de color — Atardecer (oscuro)* | *Generador — Aurora (claro)* |
 
 ---
 

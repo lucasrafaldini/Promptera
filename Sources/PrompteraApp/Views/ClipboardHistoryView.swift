@@ -4,6 +4,7 @@ import PrompteraKit
 public struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager: ClipboardManager
     @ObservedObject var state: PrompteraState
+    @AppStorage("promptera_selected_tab") private var selectedTab: PrompteraTab = .clipboard
     
     public init(clipboardManager: ClipboardManager, state: PrompteraState) {
         self.clipboardManager = clipboardManager
@@ -11,6 +12,10 @@ public struct ClipboardHistoryView: View {
     }
     
     public var body: some View {
+        // Filter once per render (the header and the list both need it).
+        let items = clipboardManager.filteredHistory
+        let isSearching = !clipboardManager.searchQuery.isEmpty
+        
         VStack(spacing: 12) {
             // Header with stats
             HStack {
@@ -20,12 +25,10 @@ public struct ClipboardHistoryView: View {
                 
                 Spacer()
                 
-                HStack(spacing: 12) {
-                    StatBadge(label: "Itens", value: "\(clipboardManager.filteredHistory.count)")
-                    
-                    if !clipboardManager.searchQuery.isEmpty {
-                        StatBadge(label: "Filtrados", value: "\(clipboardManager.filteredHistory.count) de \(clipboardManager.history.count)")
-                    }
+                if isSearching {
+                    StatBadge(label: "Filtrados", value: "\(items.count) de \(clipboardManager.history.count)")
+                } else {
+                    StatBadge(label: "Itens", value: "\(items.count)")
                 }
             }
             
@@ -33,13 +36,27 @@ public struct ClipboardHistoryView: View {
             SearchActionBar(clipboardManager: clipboardManager)
             
             // Content
-            if clipboardManager.filteredHistory.isEmpty {
-                EmptyStateView(hasSearch: !clipboardManager.searchQuery.isEmpty)
+            if items.isEmpty {
+                EmptyStateView(hasSearch: isSearching) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        clipboardManager.searchQuery = ""
+                    }
+                }
             } else {
                 ClipboardListView(
-                    items: clipboardManager.filteredHistory,
-                    onSelect: { item in state.useClipboardItem(item) },
-                    onDelete: { id in clipboardManager.removeItem(id: id) }
+                    items: items,
+                    onSelect: { item in
+                        // Load it and jump straight to the generator.
+                        state.useClipboardItem(item)
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                            selectedTab = .generator
+                        }
+                    },
+                    onDelete: { id in
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            clipboardManager.removeItem(id: id)
+                        }
+                    }
                 )
             }
         }
@@ -69,6 +86,7 @@ struct StatBadge: View {
 
 struct SearchActionBar: View {
     @ObservedObject var clipboardManager: ClipboardManager
+    @State private var confirmClear = false
     
     var body: some View {
         HStack(spacing: 10) {
@@ -108,7 +126,7 @@ struct SearchActionBar: View {
             // Clear Button
             if !clipboardManager.history.isEmpty {
                 Button {
-                    clipboardManager.clearHistory()
+                    confirmClear = true
                 } label: {
                     Label("Limpar Tudo", systemImage: "trash")
                         .font(.callout.weight(.medium))
@@ -116,6 +134,17 @@ struct SearchActionBar: View {
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
                 .help("Remove todos os itens do histórico")
+                .confirmationDialog(
+                    "Apagar todo o histórico do clipboard?",
+                    isPresented: $confirmClear
+                ) {
+                    Button("Apagar \(clipboardManager.history.count) itens", role: .destructive) {
+                        withAnimation { clipboardManager.clearHistory() }
+                    }
+                    Button("Cancelar", role: .cancel) {}
+                } message: {
+                    Text("Essa ação não pode ser desfeita.")
+                }
             }
         }
     }
@@ -123,6 +152,7 @@ struct SearchActionBar: View {
 
 struct EmptyStateView: View {
     let hasSearch: Bool
+    var onClearSearch: () -> Void = {}
     
     var body: some View {
         VStack(spacing: 16) {
@@ -152,9 +182,7 @@ struct EmptyStateView: View {
             }
             
             if hasSearch {
-                Button("Limpar busca") {
-                    // This will be handled by the parent view
-                }
+                Button("Limpar busca", action: onClearSearch)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
             }
@@ -252,8 +280,7 @@ struct ClipboardItemCard: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .help("Usar como entrada para gerar prompt")
-                    .keyboardShortcut("u", modifiers: .command)
+                    .help("Usar como entrada para gerar prompt (ou clique duplo)")
                     
                     Button(action: onDelete) {
                         Image(systemName: "trash")

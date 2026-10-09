@@ -19,6 +19,13 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 # Copy binary
 cp "$DIR/.build/release/PrompteraApp" "$MACOS_DIR/PrompteraApp"
 
+# App icon (regenerate with: swift scripts/generate_icon.swift Resources)
+if [ ! -f "$DIR/Resources/AppIcon.icns" ]; then
+    echo "🎨 Gerando ícone..."
+    swift "$DIR/scripts/generate_icon.swift" "$DIR/Resources"
+fi
+cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+
 # Write Info.plist
 cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -33,12 +40,14 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <string>Promptera</string>
     <key>CFBundleDisplayName</key>
     <string>Promptera</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
@@ -50,6 +59,9 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 </dict>
 </plist>
 EOF
+
+# Ad-hoc sign the whole bundle (seals Info.plist + resources; passes codesign --verify)
+codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
 
 echo "✅ App criado com sucesso em: $APP_DIR"
 echo "Para abrir o app no Menu Bar, execute:"

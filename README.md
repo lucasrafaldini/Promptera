@@ -1,3 +1,5 @@
+<p align="center"><img src="Resources/AppIcon.png" width="128" alt="Promptera"></p>
+
 # 🪄 Promptera
 
 **Promptera** is a native macOS app that lives in your **Menu Bar**, integrating a **Clipboard History Manager** with a **Prompt Engineering Harness** based on the Oxair methodology (*"How to Create Your Own AI Prompt Generator That Works Forever"*).
@@ -11,6 +13,19 @@ Promptera runs **100% locally and privately** with **Metal** hardware accelerati
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **🌐 Idiomas / Languages / Idiomas:** [English](README.md) • [Português](README.pt.md) • [Español](README.es.md)
+
+---
+
+## 📸 Screenshots
+
+Download the latest `.dmg` in [Releases](https://github.com/lucasrafaldini/Promptera/releases/latest).
+
+| | |
+|---|---|
+| ![Generator — Aurora (dark)](docs/screenshots/01-gerador-aurora-escuro.png) | ![Clipboard history — Ocean (light)](docs/screenshots/03-clipboard-oceano-claro.png) |
+| *Generator — Aurora (dark)* | *Clipboard history — Ocean (light)* |
+| ![Settings with 5 color themes — Sunset (dark)](docs/screenshots/04-configuracoes-temas-por-do-sol-escuro.png) | ![Generator — Aurora (light)](docs/screenshots/02-gerador-aurora-claro.png) |
+| *Settings with 5 color themes — Sunset (dark)* | *Generator — Aurora (light)* |
 
 ---
 

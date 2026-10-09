@@ -2,32 +2,29 @@ import Foundation
 import CryptoKit
 import Security
 
-public final class EncryptionService {
+public final class EncryptionService: @unchecked Sendable {
     public static let shared = EncryptionService()
     
     private let keychainService = "com.promptera.encryption"
     private let keychainAccount = "master-key"
     private let saltKey = "promptera_encryption_salt"
     
+    // Guards `symmetricKey`: the service is used from the main thread and from the
+    // clipboard persistence queue.
+    private let keyLock = NSLock()
     private var symmetricKey: SymmetricKey?
-    private let keyQueue = DispatchQueue(label: "com.promptera.encryption.key", qos: .userInitiated)
     
     private init() {}
     
     private func getOrCreateKey() throws -> SymmetricKey {
+        keyLock.lock()
+        defer { keyLock.unlock() }
         if let cached = symmetricKey {
             return cached
         }
-        
-        return try keyQueue.sync {
-            if let cached = symmetricKey {
-                return cached
-            }
-            
-            let key = try loadOrCreateMasterKey()
-            symmetricKey = key
-            return key
-        }
+        let key = try loadOrCreateMasterKey()
+        symmetricKey = key
+        return key
     }
     
     private func loadOrCreateMasterKey() throws -> SymmetricKey {

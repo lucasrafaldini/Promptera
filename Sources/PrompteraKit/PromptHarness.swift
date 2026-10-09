@@ -137,39 +137,28 @@ public actor PromptHarness {
                 do {
                     continuation.yield(HarnessExecutionEvent(type: .stageChanged("Conectando ao modelo local \(model)...")))
                     
+                    let stage: String
                     switch mode {
                     case .standard, .modularTemplate:
-                        continuation.yield(HarnessExecutionEvent(type: .stageChanged("Executando concretização semântica e sintetizando Master Prompt...")))
-                        var fullText = ""
-                        for try await token in await ollamaClient.streamGenerate(
-                            model: model,
-                            prompt: prompt,
-                            system: system,
-                            temperature: temperature
-                        ) {
-                            guard !Task.isCancelled else { break }
-                            fullText += token
-                            continuation.yield(HarnessExecutionEvent(type: .tokenYielded(token)))
-                        }
-                        continuation.yield(HarnessExecutionEvent(type: .finished(fullText)))
-                        continuation.finish()
-                        
+                        stage = "Executando concretização semântica e sintetizando Master Prompt..."
                     case .iterativeLoop:
-                        continuation.yield(HarnessExecutionEvent(type: .stageChanged("Ciclo Oxair: Rascunho → Auditoria de Adjetivos → Refinamento Concreto...")))
-                        var fullText = ""
-                        for try await token in await ollamaClient.streamGenerate(
-                            model: model,
-                            prompt: prompt,
-                            system: system,
-                            temperature: temperature
-                        ) {
-                            guard !Task.isCancelled else { break }
-                            fullText += token
-                            continuation.yield(HarnessExecutionEvent(type: .tokenYielded(token)))
-                        }
-                        continuation.yield(HarnessExecutionEvent(type: .finished(fullText)))
-                        continuation.finish()
+                        stage = "Ciclo Oxair: Rascunho → Auditoria de Adjetivos → Refinamento Concreto..."
                     }
+                    continuation.yield(HarnessExecutionEvent(type: .stageChanged(stage)))
+                    
+                    var fullText = ""
+                    for try await token in await ollamaClient.streamGenerate(
+                        model: model,
+                        prompt: prompt,
+                        system: system,
+                        temperature: temperature
+                    ) {
+                        guard !Task.isCancelled else { break }
+                        fullText += token
+                        continuation.yield(HarnessExecutionEvent(type: .tokenYielded(token)))
+                    }
+                    continuation.yield(HarnessExecutionEvent(type: .finished(fullText)))
+                    continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
                 }

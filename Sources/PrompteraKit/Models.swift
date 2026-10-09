@@ -1,31 +1,66 @@
 import Foundation
 
-public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
+public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public let content: String
     public let timestamp: Date
-    
+
+    /// Derived values are computed once at creation instead of on every SwiftUI render
+    /// (clipboard items can be very large, and these walk the whole string).
+    public let preview: String
+    public let characterCount: Int
+    public let lineCount: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case id, content, timestamp
+    }
+
     public init(id: UUID = UUID(), content: String, timestamp: Date = Date()) {
         self.id = id
         self.content = content
         self.timestamp = timestamp
+        self.preview = Self.makePreview(content)
+        self.characterCount = content.count
+        self.lineCount = content.reduce(into: 1) { count, ch in if ch.isNewline { count += 1 } }
     }
-    
-    public var preview: String {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.count <= 100 {
-            return trimmed.replacingOccurrences(of: "\n", with: " ")
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            content: try container.decode(String.self, forKey: .content),
+            timestamp: try container.decode(Date.self, forKey: .timestamp)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(content, forKey: .content)
+        try container.encode(timestamp, forKey: .timestamp)
+    }
+
+    public static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool {
+        lhs.id == rhs.id && lhs.content == rhs.content && lhs.timestamp == rhs.timestamp
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    /// Case- and diacritic-insensitive match without allocating lowercased copies.
+    public func matches(_ query: String) -> Bool {
+        content.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    private static func makePreview(_ content: String) -> String {
+        // Only look at the head of the string: avoids trimming megabytes of text.
+        let head = content.prefix(400).trimmingCharacters(in: .whitespacesAndNewlines)
+        let oneLine = head.replacingOccurrences(of: "\n", with: " ")
+        if oneLine.count <= 100 && content.count <= 400 {
+            return oneLine
         }
-        let prefix = String(trimmed.prefix(100))
-        return prefix.replacingOccurrences(of: "\n", with: " ") + "..."
-    }
-    
-    public var characterCount: Int {
-        content.count
-    }
-    
-    public var lineCount: Int {
-        content.components(separatedBy: .newlines).count
+        return String(oneLine.prefix(100)) + "..."
     }
 }
 
