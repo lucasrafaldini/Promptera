@@ -50,8 +50,8 @@ jobs:
         run: swift build -c release
 
       - name: Run tests
-        # Sequential: tests share UserDefaults (same as CI)
-        run: swift test --no-parallel
+        # Sequential (the default): tests share UserDefaults, same as CI
+        run: swift test
 
       - name: Build app bundle
         run: |
