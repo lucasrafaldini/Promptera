@@ -22,6 +22,6 @@ public enum SystemInfo {
 
     /// CFBundleShortVersionString when running from the .app bundle.
     public static let appVersion: String = {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.0"
     }()
 }

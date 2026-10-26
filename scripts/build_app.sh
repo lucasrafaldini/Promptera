@@ -4,7 +4,7 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
-VERSION="${PROMPTERA_VERSION:-1.1.0}"
+VERSION="${PROMPTERA_VERSION:-1.2.0}"
 VERSION="${VERSION#v}"
 BUILD_NUMBER="${PROMPTERA_BUILD:-2}"
 
