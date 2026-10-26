@@ -10,15 +10,15 @@ public enum OllamaError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "URL do servidor Ollama inválida."
+            return L10n.t("URL do servidor Ollama inválida.")
         case .connectionFailed(let details):
-            return "Não foi possível conectar ao Ollama (\(details)). Verifique se o serviço está ativo (execute 'ollama serve')."
+            return L10n.t("Não foi possível conectar ao Ollama (%@). Verifique se o serviço está ativo (execute 'ollama serve').", details)
         case .serverError(let code, let msg):
-            return "Erro no servidor Ollama [\(code)]: \(msg)"
+            return L10n.t("Erro no servidor Ollama [%d]: %@", code, msg)
         case .decodingError(let msg):
-            return "Erro ao processar resposta do Ollama: \(msg)"
+            return L10n.t("Erro ao processar resposta do Ollama: %@", msg)
         case .modelNotFound(let name):
-            return "Modelo '\(name)' não encontrado no Ollama local."
+            return L10n.t("Modelo '%@' não encontrado no Ollama local.", name)
         }
     }
 }

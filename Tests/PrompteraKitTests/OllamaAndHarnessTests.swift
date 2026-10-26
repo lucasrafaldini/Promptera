@@ -35,7 +35,7 @@ final class OllamaClientTests: XCTestCase {
         let decodingError = OllamaError.decodingError("malformed JSON")
         let modelNotFound = OllamaError.modelNotFound("missing-model")
 
-        XCTAssertEqual(invalidURL.errorDescription, "URL do servidor Ollama inválida.")
+        XCTAssertEqual(invalidURL.errorDescription, L10n.t("URL do servidor Ollama inválida."))
         XCTAssertTrue(connectionFailed.errorDescription?.contains("timeout") == true)
         XCTAssertTrue(serverError.errorDescription?.contains("500") == true)
         XCTAssertTrue(decodingError.errorDescription?.contains("malformed JSON") == true)

@@ -19,16 +19,16 @@ public struct ClipboardHistoryView: View {
         VStack(spacing: 12) {
             // Header with stats
             HStack {
-                Label("Histórico de Clipboard", systemImage: "doc.on.clipboard.fill")
+                Label(L10n.t("Histórico de Clipboard"), systemImage: "doc.on.clipboard.fill")
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(PrompteraColors.textPrimary)
                 
                 Spacer()
                 
                 if isSearching {
-                    StatBadge(label: "Filtrados", value: "\(items.count) de \(clipboardManager.history.count)")
+                    StatBadge(label: L10n.t("Filtrados"), value: L10n.t("%d de %d", items.count, clipboardManager.history.count))
                 } else {
-                    StatBadge(label: "Itens", value: "\(items.count)")
+                    StatBadge(label: L10n.t("Itens"), value: "\(items.count)")
                 }
             }
             
@@ -45,6 +45,7 @@ public struct ClipboardHistoryView: View {
             } else {
                 ClipboardListView(
                     items: items,
+                    searchQuery: clipboardManager.searchQuery,
                     onSelect: { item in
                         // Load it and jump straight to the generator.
                         state.useClipboardItem(item)
@@ -96,9 +97,11 @@ struct SearchActionBar: View {
                     .foregroundStyle(PrompteraColors.textSecondary)
                     .font(.system(size: 14, weight: .medium))
                 
-                TextField("Buscar no histórico...", text: $clipboardManager.searchQuery)
+                TextField(L10n.t("Buscar no histórico..."), text: $clipboardManager.searchQuery)
                     .textFieldStyle(.plain)
                     .font(.callout)
+                    .accessibilityLabel(L10n.t("Buscar no histórico de clipboard"))
+                    .accessibilityHint(L10n.t("Busca difusa por texto, ignorando maiúsculas e acentos."))
                 
                 if !clipboardManager.searchQuery.isEmpty {
                     Button {
@@ -112,6 +115,7 @@ struct SearchActionBar: View {
                     }
                     .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
+                    .accessibilityLabel(L10n.t("Limpar busca"))
                 }
             }
             .padding(.horizontal, 12)
@@ -128,22 +132,23 @@ struct SearchActionBar: View {
                 Button {
                     confirmClear = true
                 } label: {
-                    Label("Limpar Tudo", systemImage: "trash")
+                    Label(L10n.t("Limpar Tudo"), systemImage: "trash")
                         .font(.callout.weight(.medium))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
-                .help("Remove todos os itens do histórico")
+                .help(L10n.t("Remove todos os itens do histórico"))
+                .accessibilityHint(L10n.t("Remove permanentemente todo o histórico de clipboard."))
                 .confirmationDialog(
-                    "Apagar todo o histórico do clipboard?",
+                    L10n.t("Apagar todo o histórico do clipboard?"),
                     isPresented: $confirmClear
                 ) {
-                    Button("Apagar \(clipboardManager.history.count) itens", role: .destructive) {
+                    Button(L10n.t("Apagar %d itens", clipboardManager.history.count), role: .destructive) {
                         withAnimation { clipboardManager.clearHistory() }
                     }
-                    Button("Cancelar", role: .cancel) {}
+                    Button(L10n.t("Cancelar"), role: .cancel) {}
                 } message: {
-                    Text("Essa ação não pode ser desfeita.")
+                    Text(L10n.t("Essa ação não pode ser desfeita."))
                 }
             }
         }
@@ -169,20 +174,20 @@ struct EmptyStateView: View {
             }
             
             VStack(spacing: 6) {
-                Text(hasSearch ? "Nenhum resultado encontrado" : "Histórico vazio")
+                Text(hasSearch ? L10n.t("Nenhum resultado encontrado") : L10n.t("Histórico vazio"))
                     .font(.title3.weight(.medium))
                     .foregroundStyle(PrompteraColors.textPrimary)
                 
                 Text(hasSearch ? 
-                    "Tente ajustar sua busca ou limpe o filtro." : 
-                    "Copie textos em qualquer app\npara vê-los aparecer aqui automaticamente.")
+                    L10n.t("Tente ajustar sua busca ou limpe o filtro.") : 
+                    L10n.t("Copie textos em qualquer app\npara vê-los aparecer aqui automaticamente."))
                     .font(.callout)
                     .foregroundStyle(PrompteraColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
             
             if hasSearch {
-                Button("Limpar busca", action: onClearSearch)
+                Button(L10n.t("Limpar busca"), action: onClearSearch)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
             }
@@ -196,6 +201,7 @@ struct EmptyStateView: View {
 
 struct ClipboardListView: View {
     let items: [ClipboardItem]
+    let searchQuery: String
     let onSelect: (ClipboardItem) -> Void
     let onDelete: (UUID) -> Void
     
@@ -205,6 +211,7 @@ struct ClipboardListView: View {
                 ForEach(items) { item in
                     ClipboardItemCard(
                         item: item,
+                        searchQuery: searchQuery,
                         onSelect: { onSelect(item) },
                         onDelete: { onDelete(item.id) }
                     )
@@ -221,15 +228,33 @@ struct ClipboardListView: View {
 
 struct ClipboardItemCard: View {
     let item: ClipboardItem
+    let searchQuery: String
     let onSelect: () -> Void
     let onDelete: () -> Void
     @State private var isHovered = false
     @State private var showActions = false
+
+    private var highlightedPreview: AttributedString {
+        var attributed = AttributedString(item.preview)
+        guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let match = FuzzyMatcher.match(query: searchQuery, in: item.preview) else {
+            return attributed
+        }
+
+        for offset in match.matchedOffsets where offset < attributed.characters.count {
+            let start = attributed.index(attributed.startIndex, offsetByCharacters: offset)
+            let end = attributed.index(start, offsetByCharacters: 1)
+            attributed[start..<end].backgroundColor = PrompteraColors.brandPrimary.opacity(0.28)
+            attributed[start..<end].foregroundColor = PrompteraColors.textPrimary
+            attributed[start..<end].inlinePresentationIntent = .stronglyEmphasized
+        }
+        return attributed
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             // Content
-            Text(item.preview)
+            Text(highlightedPreview)
                 .font(.system(.body, design: .default))
                 .lineLimit(4)
                 .foregroundStyle(PrompteraColors.textPrimary)
@@ -249,7 +274,7 @@ struct ClipboardItemCard: View {
                 }
                 
                 Label {
-                    Text("\(item.characterCount) chars")
+                    Text(L10n.t("%d chars", item.characterCount))
                         .font(.caption)
                         .foregroundStyle(PrompteraColors.textSecondary)
                 } icon: {
@@ -260,7 +285,7 @@ struct ClipboardItemCard: View {
                 
                 if item.lineCount > 1 {
                     Label {
-                        Text("\(item.lineCount) linhas")
+                        Text(L10n.t("%d linhas", item.lineCount))
                             .font(.caption)
                             .foregroundStyle(PrompteraColors.textSecondary)
                     } icon: {
@@ -280,7 +305,8 @@ struct ClipboardItemCard: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .help("Usar como entrada para gerar prompt (ou clique duplo)")
+                    .help(L10n.t("Usar como entrada para gerar prompt (ou clique duplo)"))
+                    .accessibilityLabel(L10n.t("Usar este item como entrada"))
                     
                     Button(action: onDelete) {
                         Image(systemName: "trash")
@@ -288,7 +314,8 @@ struct ClipboardItemCard: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .help("Remover do histórico")
+                    .help(L10n.t("Remover do histórico"))
+                    .accessibilityLabel(L10n.t("Remover este item do histórico"))
                     .tint(PrompteraColors.error)
                 }
                 .opacity(isHovered || showActions ? 1 : 0.5)
@@ -314,17 +341,22 @@ struct ClipboardItemCard: View {
         .onTapGesture(count: 2) {
             onSelect()
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L10n.t("Item do clipboard: %@", item.preview))
+        .accessibilityHint(L10n.t("Clique duas vezes para usar como entrada. Ações disponíveis no menu de contexto."))
+        .accessibilityAction(named: L10n.t("Usar como entrada"), onSelect)
+        .accessibilityAction(named: L10n.t("Remover do histórico"), onDelete)
         .contextMenu {
-            Button("Usar como entrada") {
+            Button(L10n.t("Usar como entrada")) {
                 onSelect()
             }
             Divider()
-            Button("Copiar conteúdo") {
+            Button(L10n.t("Copiar conteúdo")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(item.content, forType: .string)
             }
             Divider()
-            Button("Remover", role: .destructive) {
+            Button(L10n.t("Remover"), role: .destructive) {
                 onDelete()
             }
         }

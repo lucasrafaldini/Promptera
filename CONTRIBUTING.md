@@ -36,7 +36,7 @@ Este projeto é um **Meta-Prompt Harness** nativo para macOS que vive na Menu Ba
 
 ### Instalação
 ```bash
-git clone https://github.com/seu-usuario/promptera.git
+git clone https://github.com/lucasrafaldini/Promptera.git
 cd promptera
 swift build
 ```
@@ -61,20 +61,29 @@ promptera/
 ├── Package.swift                 # Swift Package config
 ├── Sources/
 │   ├── PrompteraKit/             # Biblioteca core (reutilizável)
-│   │   ├── Models.swift          # Modelos de dados
-│   │   ├── ClipboardManager.swift # Monitoramento NSPasteboard
+│   │   ├── Models.swift          # Modelos de dados e biblioteca de prompts
+│   │   ├── ClipboardManager.swift # Monitoramento NSPasteboard e ranking fuzzy
+│   │   ├── FuzzyMatcher.swift    # Busca fuzzy
+│   │   ├── Localization.swift    # Idiomas e L10n
+│   │   ├── DesignSystem.swift    # Temas, aparência e cores
+│   │   ├── EncryptionService.swift # Persistência criptografada
 │   │   ├── OllamaClient.swift    # Cliente HTTP com streaming
 │   │   ├── PromptHarness.swift   # Motor de meta-prompting (Oxair)
-│   │   └── PrompteraState.swift  # Estado reativo @MainActor
+│   │   ├── PrompteraState.swift  # Estado reativo @MainActor
+│   │   └── Resources/            # en.lproj, pt.lproj, es.lproj
 │   ├── PrompteraApp/             # App macOS (SwiftUI MenuBar)
 │   │   ├── PrompteraApp.swift    # Entry point MenuBarExtra
+│   │   ├── UpdateController.swift # Wrapper do Sparkle
 │   │   └── Views/                # Views SwiftUI
 │   └── PrompteraCLI/             # Interface de linha de comando
 │       └── main.swift
 ├── Tests/
 │   └── PrompteraKitTests/        # Testes unitários + E2E
 ├── scripts/
-│   └── build_app.sh              # Script de empacotamento .app
+│   ├── build_app.sh              # Script de empacotamento .app
+│   ├── sign_app.sh               # Assinatura Developer ID
+│   └── notarize.sh               # Notarização e stapling
+├── docs/RELEASING.md             # Guia de release e Sparkle
 └── build/
     └── Promptera.app             # App compilado
 ```
@@ -84,17 +93,17 @@ promptera/
 ## 🎯 Áreas para Contribuição
 
 ### 🔥 Prioridade Alta (Good First Issues)
-- [ ] Melhorar acessibilidade (VoiceOver, navegação por teclado)
-- [ ] Adicionar suporte a mais idiomas (i18n)
+- [x] Melhorar acessibilidade (VoiceOver, navegação por teclado)
+- [x] Adicionar suporte a mais idiomas (i18n)
 - [ ] Melhorar tratamento de erros de rede
 - [ ] Adicionar atalhos de teclado globais
-- [ ] Implementar busca fuzzy no clipboard
+- [x] Implementar busca fuzzy no clipboard
 
 ### 🌟 Melhorias de UX
 - [ ] Animações mais fluidas nas transições de aba
-- [ ] Tema personalizável (cores, fontes)
-- [ ] Histórico de prompts gerados
-- [ ] Templates de prompt salvos pelo usuário
+- [x] Tema personalizável (cores, fontes)
+- [x] Histórico de prompts gerados
+- [x] Templates de prompt salvos pelo usuário
 - [ ] Preview em tempo real do prompt formatado
 
 ### 🧠 Core / Engine
@@ -106,8 +115,9 @@ promptera/
 ### 📦 Distribuição
 - [ ] Homebrew formula
 - [ ] Mac App Store build
-- [ ] Sparkle framework para auto-update
-- [ ] Assinatura notarizada
+- [x] Sparkle framework para auto-update
+- [x] Scripts de assinatura e notarização (`scripts/sign_app.sh`, `scripts/notarize.sh`)
+- [ ] Configurar os secrets e publicar uma release assinada/notarizada
 
 ---
 

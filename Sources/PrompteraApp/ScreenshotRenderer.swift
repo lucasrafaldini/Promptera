@@ -30,6 +30,11 @@ enum ScreenshotRenderer {
         let themeStore = ThemeStore.shared
         let originalTheme = themeStore.theme
         let originalAppearance = themeStore.appearance
+        let languageStore = LanguageStore.shared
+        let originalLanguage = languageStore.language
+
+        // The demo copy is written in Portuguese, so force it for deterministic shots.
+        languageStore.language = .pt
 
         let demoDefaults = UserDefaults(suiteName: "promptera.screenshots")!
 
@@ -66,6 +71,7 @@ enum ScreenshotRenderer {
 
         themeStore.theme = originalTheme
         themeStore.appearance = originalAppearance
+        languageStore.language = originalLanguage
         demoDefaults.removePersistentDomain(forName: "promptera.screenshots")
     }
 
@@ -110,7 +116,7 @@ enum ScreenshotRenderer {
         | "retry exponencial" | Backoff 2^n com jitter | máx. 5 tentativas, teto 30 s | 0 falhas em 100 erros 503 simulados |
         | "logs estruturados" | 1 objeto JSON por linha | campos ts, level, key, bytes | `jq` valida 100% das linhas |
         """
-        state.statusMessage = "Prompt concluído com sucesso!"
+        state.setStatus(L10n.t("Prompt concluído com sucesso!"), kind: .success)
         return state
     }
 

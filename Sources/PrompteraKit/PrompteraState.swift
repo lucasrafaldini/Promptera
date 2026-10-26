@@ -4,17 +4,26 @@ import Combine
 
 @MainActor
 public final class PrompteraState: ObservableObject {
+    public enum StatusKind: Sendable, Equatable {
+        case idle
+        case info
+        case success
+        case error
+    }
+
     @Published public var availableModels: [OllamaModelInfo] = []
     @Published public var selectedModel: String = ""
     @Published public var selectedPreset: HarnessPreset = HarnessPreset.presets[0]
     @Published public var selectedMode: HarnessMode = .iterativeLoop
     @Published public var inputText: String = ""
     @Published public var outputText: String = ""
-    @Published public var statusMessage: String = "Pronto"
+    @Published public var statusMessage: String = L10n.t("Pronto")
+    @Published public var statusKind: StatusKind = .idle
     @Published public var isGenerating: Bool = false
     @Published public var errorMessage: String? = nil
     @Published public var copiedToast: Bool = false
     @Published public var isOllamaConnected: Bool = false
+    @Published public private(set) var library: [PromptLibraryItem] = []
     public var isRefreshingModels: Bool { activeRefreshes > 0 }
     @Published private var activeRefreshes = 0
     
@@ -32,6 +41,14 @@ public final class PrompteraState: ObservableObject {
     private let selectedPresetKey = "promptera_selected_preset"
     private let selectedModeKey = "promptera_selected_mode"
     private let ollamaBaseURLKey = "promptera_ollama_base_url"
+    private let libraryStorageKey = "promptera_prompt_library"
+    private let maxLibraryItems = 100
+
+    /// Encryption + UserDefaults writes for the prompt library happen off the main thread.
+    private static let libraryPersistenceQueue = DispatchQueue(
+        label: "com.promptera.library.persistence",
+        qos: .utility
+    )
     
     public init(
         clipboardManager: ClipboardManager? = nil,
@@ -42,6 +59,7 @@ public final class PrompteraState: ObservableObject {
         self.clipboardManager = cm
         self.ollamaClient = ollamaClient
         self.promptHarness = PromptHarness(ollamaClient: ollamaClient)
+        loadPersistedLibrary()
         
         // Load persisted settings, then refresh using the saved server URL
         // (sequenced, so the first request never goes to the default URL by mistake).
@@ -135,13 +153,13 @@ public final class PrompteraState: ObservableObject {
     public func refreshModels() async {
         activeRefreshes += 1
         defer { activeRefreshes -= 1 }
-        statusMessage = "Verificando modelos locais..."
+        setStatus(L10n.t("Verificando modelos locais..."))
         let available = await ollamaClient.isAvailable()
         self.isOllamaConnected = available
         
         guard available else {
-            self.errorMessage = "Ollama offline. Execute 'ollama serve' no terminal."
-            self.statusMessage = "Desconectado do Ollama"
+            self.errorMessage = L10n.t("Ollama offline. Execute 'ollama serve' no terminal.")
+            self.setStatus(L10n.t("Desconectado do Ollama"), kind: .error)
             return
         }
         
@@ -179,10 +197,10 @@ public final class PrompteraState: ObservableObject {
                 }
             }
             
-            self.statusMessage = "Pronto (\(models.count) modelos locais)"
+            self.setStatus(L10n.t("Pronto (%d modelos locais)", models.count), kind: .success)
         } catch {
-            self.errorMessage = "Falha ao carregar modelos: \(error.localizedDescription)"
-            self.statusMessage = "Erro de conexão"
+            self.errorMessage = L10n.t("Falha ao carregar modelos: %@", error.localizedDescription)
+            self.setStatus(L10n.t("Erro de conexão"), kind: .error)
         }
     }
     
@@ -201,23 +219,23 @@ public final class PrompteraState: ObservableObject {
         generationTask = nil
         currentGenerationID = nil
         isGenerating = false
-        statusMessage = "Geração cancelada"
+        setStatus(L10n.t("Geração cancelada"))
     }
     
     public func generatePrompt() {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Digite uma ideia ou selecione um item do clipboard para começar."
+            errorMessage = L10n.t("Digite uma ideia ou selecione um item do clipboard para começar.")
             return
         }
         guard !selectedModel.isEmpty else {
-            errorMessage = "Selecione um modelo local do Ollama."
+            errorMessage = L10n.t("Selecione um modelo local do Ollama.")
             return
         }
         
         isGenerating = true
         errorMessage = nil
         outputText = ""
-        statusMessage = "Iniciando harness..."
+        setStatus(L10n.t("Iniciando harness..."))
         
         generationTask?.cancel()
         let generationID = UUID()
@@ -246,7 +264,7 @@ public final class PrompteraState: ObservableObject {
                     
                     switch event.type {
                     case .stageChanged(let stage):
-                        self.statusMessage = stage
+                        self.setStatus(stage)
                     case .tokenYielded(let token):
                         // Batch tokens: re-rendering a growing Text per token is O(n²).
                         pending += token
@@ -258,13 +276,22 @@ public final class PrompteraState: ObservableObject {
                     case .finished(let finalResult):
                         pending = ""
                         self.outputText = finalResult
-                        self.statusMessage = "Prompt concluído com sucesso!"
+                        self.setStatus(L10n.t("Prompt concluído com sucesso!"), kind: .success)
+                        if !finalResult.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            _ = self.savePromptToLibrary(
+                                input: input,
+                                output: finalResult,
+                                preset: preset,
+                                mode: mode,
+                                model: model
+                            )
+                        }
                     }
                 }
             } catch {
                 if !Task.isCancelled && self.currentGenerationID == generationID {
                     self.errorMessage = error.localizedDescription
-                    self.statusMessage = "Falha na geração"
+                    self.setStatus(L10n.t("Falha na geração"), kind: .error)
                 }
             }
             
@@ -281,6 +308,12 @@ public final class PrompteraState: ObservableObject {
     
     public func dismissError() {
         errorMessage = nil
+    }
+
+    /// Updates the status line and its semantic kind (used for icon/color).
+    public func setStatus(_ message: String, kind: StatusKind = .info) {
+        statusMessage = message
+        statusKind = kind
     }
     
     public func copyOutput() {
@@ -312,6 +345,125 @@ public final class PrompteraState: ObservableObject {
         persistSelectedMode()
     }
     
+    // MARK: - Prompt Library
+
+    public func libraryItems(matching query: String) -> [PromptLibraryItem] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return library }
+        return library
+            .compactMap { item -> (item: PromptLibraryItem, match: FuzzyMatch)? in
+                guard let match = item.fuzzyMatch(trimmed) else { return nil }
+                return (item, match)
+            }
+            .sorted { lhs, rhs in
+                if lhs.match.score != rhs.match.score {
+                    return lhs.match.score > rhs.match.score
+                }
+                return lhs.item.updatedAt > rhs.item.updatedAt
+            }
+            .map(\.item)
+    }
+
+    @discardableResult
+    public func savePromptToLibrary(
+        input: String,
+        output: String,
+        preset: HarnessPreset,
+        mode: HarnessMode,
+        model: String
+    ) -> PromptLibraryItem? {
+        let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedOutput.isEmpty else { return nil }
+
+        let item = PromptLibraryItem(
+            input: input,
+            output: trimmedOutput,
+            presetID: preset.id,
+            modeRawValue: mode.rawValue,
+            model: model
+        )
+        library.removeAll { $0.input == item.input && $0.output == item.output }
+        library.insert(item, at: 0)
+        if library.count > maxLibraryItems {
+            library.removeLast(library.count - maxLibraryItems)
+        }
+        persistLibrary()
+        return item
+    }
+
+    public func deleteLibraryItem(id: UUID) {
+        library.removeAll { $0.id == id }
+        persistLibrary()
+    }
+
+    public func updateLibraryItem(_ item: PromptLibraryItem) {
+        guard let index = library.firstIndex(where: { $0.id == item.id }) else { return }
+        var updated = item
+        updated.title = updated.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if updated.title.isEmpty {
+            updated.title = PromptLibraryItem.makeTitle(from: updated.input)
+        }
+        updated.updatedAt = Date()
+        library[index] = updated
+        library.sort { $0.updatedAt > $1.updatedAt }
+        persistLibrary()
+    }
+
+    public func loadLibraryItem(_ item: PromptLibraryItem) {
+        inputText = item.input
+        outputText = item.output
+        if let preset = item.preset {
+            updateSelectedPreset(preset)
+        }
+        if let mode = item.mode {
+            updateSelectedMode(mode)
+        }
+        if availableModels.contains(where: { $0.name == item.model }) {
+            updateSelectedModel(item.model)
+        }
+    }
+
+    public func clearLibrary() {
+        library.removeAll()
+        persistLibrary()
+    }
+
+    private func persistLibrary() {
+        let snapshot = library
+        let key = libraryStorageKey
+        let encryptionService = EncryptionService.shared
+        Self.libraryPersistenceQueue.async {
+            do {
+                let data = try JSONEncoder().encode(snapshot)
+                let encrypted = try encryptionService.encrypt(data)
+                UserDefaults.standard.set(encrypted, forKey: key)
+            } catch {
+                // Non-critical persistence failure
+            }
+        }
+    }
+
+    private func loadPersistedLibrary() {
+        Self.libraryPersistenceQueue.sync {}
+        guard let encryptedData = settingsStorage.data(forKey: libraryStorageKey) else { return }
+        do {
+            let data = try EncryptionService.shared.decrypt(encryptedData)
+            library = try JSONDecoder().decode([PromptLibraryItem].self, from: data)
+        } catch {
+            library = []
+            settingsStorage.removeObject(forKey: libraryStorageKey)
+        }
+    }
+
+    private func mergeLibraryItems(_ items: [PromptLibraryItem]) {
+        guard !items.isEmpty else { return }
+        var seen = Set(library.map(\.id))
+        let newItems = items.filter { seen.insert($0.id).inserted }
+        guard !newItems.isEmpty else { return }
+        library = Array((library + newItems).sorted { $0.updatedAt > $1.updatedAt }.prefix(maxLibraryItems))
+        persistLibrary()
+    }
+
     // MARK: - Export/Import
     
     public struct ExportData: Codable {
@@ -320,6 +472,7 @@ public final class PrompteraState: ObservableObject {
         let prompts: [PromptExport]
         let clipboardHistory: [ClipboardItem]
         let settings: SettingsExport
+        let library: [PromptLibraryItem]?
         
         struct PromptExport: Codable {
             let input: String
@@ -364,7 +517,8 @@ public final class PrompteraState: ObservableObject {
             exportedAt: Date(),
             prompts: prompts,
             clipboardHistory: includeClipboard ? clipboardManager.history : [],
-            settings: settings
+            settings: settings,
+            library: includePrompts ? library : nil
         )
         
         let encoder = JSONEncoder()
@@ -403,6 +557,9 @@ public final class PrompteraState: ObservableObject {
         // Import clipboard history (merge, avoiding duplicates) without overwriting
         // whatever the user currently has on the system pasteboard.
         clipboardManager.mergeItems(export.clipboardHistory)
+
+        // Import the prompt library (merge, avoiding duplicate IDs).
+        mergeLibraryItems(export.library ?? [])
         
         // Import settings
         if let preset = HarnessPreset.presets.first(where: { $0.id == export.settings.selectedPreset }) {

@@ -25,3 +25,6 @@ Package.resolved
 # Test artifacts
 *.xctestresult
 coverage.lcov
+
+# Sparkle signing key (never commit)
+.sparkle_private_key

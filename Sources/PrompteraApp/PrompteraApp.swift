@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Set app as accessory (lives exclusively in the Menu Bar, no dock icon)
         NSApp.setActivationPolicy(.accessory)
         ThemeStore.shared.applyAppearance()
+        UpdateController.shared.start()
     }
 }
 

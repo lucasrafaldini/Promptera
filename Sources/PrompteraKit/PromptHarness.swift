@@ -135,14 +135,14 @@ public actor PromptHarness {
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    continuation.yield(HarnessExecutionEvent(type: .stageChanged("Conectando ao modelo local \(model)...")))
+                    continuation.yield(HarnessExecutionEvent(type: .stageChanged(L10n.t("Conectando ao modelo local %@...", model))))
                     
                     let stage: String
                     switch mode {
                     case .standard, .modularTemplate:
-                        stage = "Executando concretização semântica e sintetizando Master Prompt..."
+                        stage = L10n.t("Executando concretização semântica e sintetizando Master Prompt...")
                     case .iterativeLoop:
-                        stage = "Ciclo Oxair: Rascunho → Auditoria de Adjetivos → Refinamento Concreto..."
+                        stage = L10n.t("Ciclo Oxair: Rascunho → Auditoria de Adjetivos → Refinamento Concreto...")
                     }
                     continuation.yield(HarnessExecutionEvent(type: .stageChanged(stage)))
                     

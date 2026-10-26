@@ -6,8 +6,8 @@
 
 Promptera runs **100% locally and privately** with **Metal** hardware acceleration on your **Apple Silicon (M4)** processor using local models via **Ollama**.
 
-[![CI](https://github.com/seu-usuario/promptera/workflows/CI/badge.svg)](https://github.com/seu-usuario/promptera/actions)
-[![Release](https://github.com/seu-usuario/promptera/workflows/Release/badge.svg)](https://github.com/seu-usuario/promptera/actions)
+[![CI](https://github.com/lucasrafaldini/promptera/workflows/CI/badge.svg)](https://github.com/lucasrafaldini/promptera/actions)
+[![Release](https://github.com/lucasrafaldini/promptera/workflows/Release/badge.svg)](https://github.com/lucasrafaldini/promptera/actions)
 [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%2014%2B-lightgrey.svg)](https://apple.com/macos)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -40,11 +40,11 @@ Download the latest `.dmg` in [Releases](https://github.com/lucasrafaldini/Promp
 ### 2. Integrated Clipboard History
 - Continuous background monitoring of `NSPasteboard`
 - Searchable history of recent text and code snippets
-- Real-time fuzzy search
+- Real-time fuzzy search: ranks the best matches first, ignores case/diacritics and highlights the matched characters
 - 1-click to load any item as context for prompt generation
 - 1-click to copy generated Master Prompt back to clipboard
 - Context menu actions (right-click)
-- Automatic persistence between sessions
+- Encrypted local persistence between sessions
 
 ### 3. Prompt Creation Harness (Oxair Methodology)
 - **Oxair Loop (Generate → Critique → Refine):** AI drafts, audits own flaws/implicit assumptions, synthesizes a battle-tested Master Prompt
@@ -67,11 +67,26 @@ Download the latest `.dmg` in [Releases](https://github.com/lucasrafaldini/Promp
 - Model, preset, and mode saved automatically
 - Configurable Ollama URL
 - Full Export/Import (JSON)
-  - Generated prompts
+  - Generated prompts and prompt library
   - Clipboard history
   - Settings
 
-### 6. Command Line Interface (CLI)
+### 6. Prompt Library
+- Every successful generation is saved automatically
+- Dedicated **Library** tab with fuzzy search, edit, delete and “load into generator”
+- Each entry keeps its original input, Master Prompt, preset, mode and model
+- Encrypted at rest and included in Export/Import
+
+### 7. Accessibility, Localization & Themes
+- VoiceOver labels, hints, traits and custom actions across the main views
+- Interface available in **English**, **Portuguese** and **Spanish**, switchable in Settings without restarting
+- Five color themes, light/dark/system appearance and a custom accent color
+
+### 8. Automatic Updates
+- Built-in [Sparkle 2](https://sparkle-project.org) updater with Ed25519-signed appcasts
+- Optional automatic checks, plus “Check for Updates” in Settings
+
+### 9. Command Line Interface (CLI)
 ```bash
 # Generate from provided text:
 swift run promptera "Create a JWT auth microservice in Go"
@@ -109,6 +124,9 @@ open build/Promptera.app
 cp -R build/Promptera.app /Applications/
 ```
 
+Releases are built, signed and notarized by the workflow described in
+[`docs/RELEASING.md`](docs/RELEASING.md), including Sparkle appcast generation.
+
 ---
 
 ## 🧪 Tests
@@ -125,32 +143,45 @@ swift test --enable-code-coverage
 xcrun llvm-cov export -format="lcov" .build/debug/PrompteraKitTests.xctest/Contents/MacOS/PrompteraKitTests -instr-profile .build/debug/codecov/default.profdata > coverage.lcov
 ```
 
+The suite currently has **94 tests** covering clipboard management, fuzzy search,
+localization, the prompt library, encryption and the Oxair harness.
+
 ---
 
 ## 🛠️ Code Structure
 
 ```
 promptera/
-├── Package.swift                     # Swift Package config
+├── Package.swift                     # Swift Package config (Sparkle + resources)
 ├── Sources/
 │   ├── PrompteraKit/                 # Core Library (reusable)
-│   │   ├── Models.swift              # Data models and presets
-│   │   ├── ClipboardManager.swift    # NSPasteboard monitoring
+│   │   ├── Models.swift              # Data models, presets and library items
+│   │   ├── ClipboardManager.swift    # NSPasteboard monitoring and ranking
+│   │   ├── FuzzyMatcher.swift        # Fuzzy search scoring
+│   │   ├── Localization.swift        # AppLanguage, LanguageStore and L10n
+│   │   ├── DesignSystem.swift        # Themes, appearance and accent colors
+│   │   ├── EncryptionService.swift   # Encrypted local persistence
 │   │   ├── OllamaClient.swift        # HTTP client with streaming
 │   │   ├── PromptHarness.swift       # Meta-prompting engine (Oxair)
-│   │   └── PrompteraState.swift      # Reactive @MainActor state
+│   │   ├── PrompteraState.swift      # Reactive @MainActor state
+│   │   └── Resources/                # en.lproj, pt.lproj, es.lproj
 │   ├── PrompteraApp/                 # macOS App (SwiftUI MenuBar)
 │   │   ├── PrompteraApp.swift        # MenuBarExtra entry point
+│   │   ├── UpdateController.swift    # Sparkle wrapper
 │   │   └── Views/
-│   │       ├── MainMenuView.swift    # Main window with tabs
+│   │       ├── MainMenuView.swift    # Main window, settings and tabs
 │   │       ├── PromptGeneratorView.swift # Editor, presets, streaming
+│   │       ├── PromptLibraryView.swift   # Saved prompts, search and editor
 │   │       └── ClipboardHistoryView.swift # Copy/paste history
 │   └── PrompteraCLI/                 # Terminal CLI interface
 │       └── main.swift                # Command line executable
 ├── Tests/
-│   └── PrompteraKitTests/            # 63 tests (unit + E2E)
+│   └── PrompteraKitTests/            # 94 tests (unit + E2E)
 ├── scripts/
-│   └── build_app.sh                  # Build script for Promptera.app
+│   ├── build_app.sh                  # Build script for Promptera.app
+│   ├── sign_app.sh                   # Developer ID signing
+│   └── notarize.sh                   # Notarization and stapling
+├── docs/RELEASING.md                 # Release, signing and Sparkle guide
 ├── .github/
 │   ├── workflows/                    # CI/CD GitHub Actions
 │   └── ISSUE_TEMPLATE/               # Issue templates
@@ -166,9 +197,7 @@ promptera/
 |----------|--------|
 | `⌘⏎` | Generate Master Prompt |
 | `⎋` | Cancel generation |
-| `⌘U` | Use selected clipboard item |
-| `⌘⌫` | Clear input |
-| `⌘C` | Copy generated prompt |
+| `⏎` / `⎋` | Save / cancel in the prompt library editor |
 
 ---
 
@@ -177,9 +206,9 @@ promptera/
 We love contributions! See our [Contributing Guide](CONTRIBUTING.md) to get started.
 
 ### Good First Issues
-- [Improve accessibility](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
-- [Add i18n](https://github.com/seu-usuario/promptera/issues?q=label%3A%22good+first+issue%22)
-- [New domain presets](https://github.com/seu-usuario/promptera/issues?q=label%3A%22enhancement%22)
+- [Global keyboard shortcut](https://github.com/lucasrafaldini/Promptera/issues/3)
+- [Multiple LLM providers](https://github.com/lucasrafaldini/Promptera/issues/6)
+- [New domain presets](https://github.com/lucasrafaldini/Promptera/issues?q=label%3Aenhancement)
 
 ### Hacktoberfest
 This project participates in **Hacktoberfest**! Issues tagged with `hacktoberfest` are ideal for contributions during the event.
@@ -203,9 +232,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 📞 Support
 
-- 🐛 [Report Bug](https://github.com/seu-usuario/promptera/issues/new?template=bug_report.md)
-- 💡 [Request Feature](https://github.com/seu-usuario/promptera/issues/new?template=feature_request.md)
-- 💬 [Discussions](https://github.com/seu-usuario/promptera/discussions)
+- 🐛 [Report Bug](https://github.com/lucasrafaldini/promptera/issues/new?template=bug_report.md)
+- 💡 [Request Feature](https://github.com/lucasrafaldini/promptera/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/lucasrafaldini/promptera/discussions)
 
 ---
 

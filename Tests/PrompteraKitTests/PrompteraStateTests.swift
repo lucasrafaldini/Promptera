@@ -16,6 +16,7 @@ final class PrompteraStateTests: XCTestCase {
         defaults.removeObject(forKey: "promptera_selected_preset")
         defaults.removeObject(forKey: "promptera_selected_mode")
         defaults.removeObject(forKey: "promptera_ollama_base_url")
+        defaults.removeObject(forKey: "promptera_prompt_library")
     }
 
     override func tearDown() {
@@ -34,7 +35,8 @@ final class PrompteraStateTests: XCTestCase {
         XCTAssertEqual(state.selectedMode, .iterativeLoop)
         XCTAssertEqual(state.inputText, "")
         XCTAssertEqual(state.outputText, "")
-        XCTAssertEqual(state.statusMessage, "Pronto")
+        XCTAssertEqual(state.statusMessage, L10n.t("Pronto"))
+        XCTAssertEqual(state.statusKind, .idle)
         XCTAssertFalse(state.isGenerating)
         XCTAssertNil(state.errorMessage)
         XCTAssertFalse(state.copiedToast)
@@ -75,7 +77,7 @@ final class PrompteraStateTests: XCTestCase {
         state.cancelGeneration()
 
         XCTAssertFalse(state.isGenerating)
-        XCTAssertEqual(state.statusMessage, "Geração cancelada")
+        XCTAssertEqual(state.statusMessage, L10n.t("Geração cancelada"))
     }
 
     func testGeneratePromptEmptyInput() {
@@ -84,8 +86,10 @@ final class PrompteraStateTests: XCTestCase {
 
         state.generatePrompt()
 
-        XCTAssertNotNil(state.errorMessage)
-        XCTAssertTrue(state.errorMessage?.contains("Digite uma ideia") == true)
+        XCTAssertEqual(
+            state.errorMessage,
+            L10n.t("Digite uma ideia ou selecione um item do clipboard para começar.")
+        )
     }
 
     func testGeneratePromptNoModel() {
@@ -95,8 +99,7 @@ final class PrompteraStateTests: XCTestCase {
 
         state.generatePrompt()
 
-        XCTAssertNotNil(state.errorMessage)
-        XCTAssertTrue(state.errorMessage?.contains("Selecione um modelo") == true)
+        XCTAssertEqual(state.errorMessage, L10n.t("Selecione um modelo local do Ollama."))
     }
 
     func testCopyOutput() {
@@ -128,6 +131,92 @@ final class PrompteraStateTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 2_500_000_000)
 
         XCTAssertFalse(state.copiedToast)
+    }
+
+    func testSavePromptToLibrary() {
+        state = PrompteraState(ollamaClient: mockClient)
+
+        let item = state.savePromptToLibrary(
+            input: "Create a REST API",
+            output: "# ROLE\nYou are a backend engineer.",
+            preset: HarnessPreset.presets[0],
+            mode: .standard,
+            model: "llama3.1"
+        )
+
+        XCTAssertNotNil(item)
+        XCTAssertEqual(state.library.count, 1)
+        XCTAssertEqual(item?.title, "Create a REST API")
+        XCTAssertEqual(item?.model, "llama3.1")
+        XCTAssertEqual(item?.mode, .standard)
+
+        state.deleteLibraryItem(id: item!.id)
+        XCTAssertTrue(state.library.isEmpty)
+    }
+
+    func testSavePromptToLibraryIgnoresEmptyOutput() {
+        state = PrompteraState(ollamaClient: mockClient)
+
+        let item = state.savePromptToLibrary(
+            input: "Create a REST API",
+            output: "   \n",
+            preset: HarnessPreset.presets[0],
+            mode: .standard,
+            model: "llama3.1"
+        )
+
+        XCTAssertNil(item)
+        XCTAssertTrue(state.library.isEmpty)
+    }
+
+    func testLibrarySearchUsesFuzzyMatching() {
+        state = PrompteraState(ollamaClient: mockClient)
+        _ = state.savePromptToLibrary(
+            input: "Create a REST API",
+            output: "Backend prompt",
+            preset: HarnessPreset.presets[1],
+            mode: .standard,
+            model: "llama3.1"
+        )
+        _ = state.savePromptToLibrary(
+            input: "Write marketing copy",
+            output: "Copy prompt",
+            preset: HarnessPreset.presets[4],
+            mode: .modularTemplate,
+            model: "llama3.1"
+        )
+
+        XCTAssertEqual(state.libraryItems(matching: "rest api").count, 1)
+        XCTAssertEqual(state.libraryItems(matching: "markting").count, 1)
+        XCTAssertEqual(state.libraryItems(matching: "").count, 2)
+
+        state.clearLibrary()
+    }
+
+    func testLoadLibraryItemRestoresPromptState() {
+        state = PrompteraState(ollamaClient: mockClient)
+        let preset = HarnessPreset.presets[1]
+        let item = state.savePromptToLibrary(
+            input: "Create a REST API",
+            output: "Master prompt",
+            preset: preset,
+            mode: .modularTemplate,
+            model: "llama3.1"
+        )!
+
+        state.inputText = ""
+        state.outputText = ""
+        state.updateSelectedPreset(HarnessPreset.presets[0])
+        state.updateSelectedMode(.standard)
+
+        state.loadLibraryItem(item)
+
+        XCTAssertEqual(state.inputText, "Create a REST API")
+        XCTAssertEqual(state.outputText, "Master prompt")
+        XCTAssertEqual(state.selectedPreset.id, preset.id)
+        XCTAssertEqual(state.selectedMode, .modularTemplate)
+
+        state.clearLibrary()
     }
 }
 

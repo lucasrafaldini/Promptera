@@ -12,14 +12,25 @@ private extension DateFormatter {
 public enum PrompteraTab: String, CaseIterable, Identifiable {
     case generator = "Gerador"
     case clipboard = "Clipboard"
+    case library = "Biblioteca"
     case settings = "Configurações"
     
     public var id: String { rawValue }
+    
+    public var displayName: String {
+        switch self {
+        case .generator: return L10n.t("Gerador")
+        case .clipboard: return L10n.t("Clipboard")
+        case .library: return L10n.t("Biblioteca")
+        case .settings: return L10n.t("Configurações")
+        }
+    }
     
     public var icon: String {
         switch self {
         case .generator: return "wand.and.stars"
         case .clipboard: return "doc.on.clipboard"
+        case .library: return "books.vertical"
         case .settings: return "gearshape"
         }
     }
@@ -61,7 +72,7 @@ public struct MainMenuView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: tab.icon)
                                     .font(.system(size: 16, weight: .medium))
-                                Text(tab.rawValue)
+                                Text(tab.displayName)
                                     .font(.caption2)
                                     .fontWeight(.medium)
                             }
@@ -80,15 +91,16 @@ public struct MainMenuView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .help(tab.rawValue)
-                        .accessibilityLabel(tab.rawValue)
+                        .help(tab.displayName)
+                        .accessibilityLabel(tab.displayName)
+                        .accessibilityHint(L10n.t("Abre a aba %@", tab.displayName))
                         .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
                     }
                 }
                 .padding(4)
                 .background(PrompteraColors.surfaceSecondary)
                 .cornerRadius(12)
-                .frame(width: 300)
+                .frame(width: 360)
                 
                 Spacer()
                 
@@ -104,8 +116,8 @@ public struct MainMenuView: View {
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
-                .help("Encerrar Promptera")
-                .accessibilityLabel("Encerrar Promptera")
+                .help(L10n.t("Encerrar Promptera"))
+                .accessibilityLabel(L10n.t("Encerrar Promptera"))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -131,6 +143,8 @@ public struct MainMenuView: View {
                     PromptGeneratorView(state: state)
                 case .clipboard:
                     ClipboardHistoryView(clipboardManager: state.clipboardManager, state: state)
+                case .library:
+                    PromptLibraryView(state: state)
                 case .settings:
                     SettingsView(state: state)
                 }
@@ -154,6 +168,7 @@ struct SettingsView: View {
     @ObservedObject var state: PrompteraState
     @State private var ollamaUrlText: String = "http://127.0.0.1:11434"
     @State private var urlError: String?
+    @State private var languageStore = LanguageStore.shared
     private let themeStore = ThemeStore.shared
     
     var body: some View {
@@ -161,19 +176,19 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Configurações")
+                    Text(L10n.t("Configurações"))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundStyle(PrompteraColors.textPrimary)
-                    Text("Gerencie preferências do Promptera e conexão com Ollama")
+                    Text(L10n.t("Gerencie preferências do Promptera e conexão com Ollama"))
                         .font(.subheadline)
                         .foregroundStyle(PrompteraColors.textSecondary)
                 }
                 
                 // Appearance Section
-                SettingsSection(title: "Aparência", icon: "paintpalette") {
+                SettingsSection(title: L10n.t("Aparência"), icon: "paintpalette") {
                     VStack(alignment: .leading, spacing: 14) {
-                        Picker("Modo", selection: Binding(
+                        Picker(L10n.t("Modo"), selection: Binding(
                             get: { themeStore.appearance },
                             set: { newValue in
                                 themeStore.appearance = newValue
@@ -187,8 +202,19 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.segmented)
                         
+                        Picker(L10n.t("Idioma"), selection: Binding(
+                            get: { languageStore.language },
+                            set: { languageStore.language = $0 }
+                        )) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(language.displayName).tag(language)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityHint(L10n.t("Muda o idioma da interface imediatamente."))
+                        
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Tema de Cores")
+                            Text(L10n.t("Tema de Cores"))
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(PrompteraColors.textSecondary)
                             
@@ -202,11 +228,31 @@ struct SettingsView: View {
                                 }
                             }
                         }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.t("Cor de Destaque"))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                            
+                            HStack(spacing: 10) {
+                                ForEach(accentOptions) { option in
+                                    AccentSwatch(
+                                        color: option.hex.map { Color(hex: UInt32($0, radix: 16) ?? 0) } ?? themeStore.theme.accent,
+                                        name: option.name,
+                                        isSelected: themeStore.accentHex == option.hex
+                                    ) {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            themeStore.accentHex = option.hex
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 
                 // Hardware Section
-                SettingsSection(title: "Hardware & Aceleração", icon: "apple.logo") {
+                SettingsSection(title: L10n.t("Hardware & Aceleração"), icon: "apple.logo") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: "cpu.fill")
@@ -215,12 +261,13 @@ struct SettingsView: View {
                                 .frame(width: 40, height: 40)
                                 .background(PrompteraColors.surfaceSecondary)
                                 .cornerRadius(10)
+                                .accessibilityHidden(true)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(SystemInfo.chipName)
                                     .font(.headline)
                                     .foregroundStyle(PrompteraColors.textPrimary)
-                                Text("\(SystemInfo.memoryDescription) de Memória Unificada • Metal GPU • Neural Engine")
+                                Text(L10n.t("%@ de Memória Unificada • Metal GPU • Neural Engine", SystemInfo.memoryDescription))
                                     .font(.caption)
                                     .foregroundStyle(PrompteraColors.textSecondary)
                             }
@@ -229,7 +276,7 @@ struct SettingsView: View {
                         Divider()
                             .background(PrompteraColors.borderSubtle)
                         
-                        Text("A inferência roda 100% local no seu Mac, sem dados saindo do dispositivo. Aproveita aceleração GPU Metal e Neural Engine via Ollama.")
+                        Text(L10n.t("A inferência roda 100% local no seu Mac, sem dados saindo do dispositivo. Aproveita aceleração GPU Metal e Neural Engine via Ollama."))
                             .font(.callout)
                             .foregroundStyle(PrompteraColors.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -237,19 +284,20 @@ struct SettingsView: View {
                 }
                 
                 // Ollama Section
-                SettingsSection(title: "Servidor Ollama Local", icon: "server.rack") {
+                SettingsSection(title: L10n.t("Servidor Ollama Local"), icon: "server.rack") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Circle()
                                 .fill(state.isOllamaConnected ? PrompteraColors.success : PrompteraColors.error)
                                 .frame(width: 12, height: 12)
                                 .shadow(color: (state.isOllamaConnected ? PrompteraColors.success : PrompteraColors.error).opacity(0.5), radius: 4)
+                                .accessibilityHidden(true)
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(state.isOllamaConnected ? "Ollama Conectado" : "Ollama Não Detectado")
+                                Text(state.isOllamaConnected ? L10n.t("Ollama Conectado") : L10n.t("Ollama Não Detectado"))
                                     .font(.headline)
                                     .foregroundStyle(PrompteraColors.textPrimary)
-                                Text(state.isOllamaConnected ? "Pronto para gerar prompts" : "Execute 'ollama serve' no terminal")
+                                Text(state.isOllamaConnected ? L10n.t("Pronto para gerar prompts") : L10n.t("Execute 'ollama serve' no terminal"))
                                     .font(.caption)
                                     .foregroundStyle(PrompteraColors.textSecondary)
                             }
@@ -262,13 +310,14 @@ struct SettingsView: View {
                                 if state.isRefreshingModels {
                                     ProgressView().controlSize(.small)
                                 } else {
-                                    Label("Recarregar", systemImage: "arrow.clockwise")
+                                    Label(L10n.t("Recarregar"), systemImage: "arrow.clockwise")
                                         .font(.callout.weight(.medium))
                                 }
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                             .disabled(state.isGenerating || state.isRefreshingModels)
+                            .accessibilityHint(L10n.t("Verifica novamente a conexão e a lista de modelos do Ollama."))
                         }
                         
                         // Ollama URL Configuration
@@ -276,7 +325,7 @@ struct SettingsView: View {
                             .background(PrompteraColors.borderSubtle)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("URL do Servidor Ollama")
+                            Text(L10n.t("URL do Servidor Ollama"))
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(PrompteraColors.textSecondary)
                             
@@ -284,18 +333,22 @@ struct SettingsView: View {
                                 Image(systemName: "link")
                                     .foregroundStyle(PrompteraColors.textSecondary)
                                     .frame(width: 20)
+                                    .accessibilityHidden(true)
                                 
                                 TextField("http://127.0.0.1:11434", text: $ollamaUrlText)
                                     .textFieldStyle(.plain)
                                     .font(.system(.callout, design: .monospaced))
                                     .onSubmit(applyURL)
+                                    .accessibilityLabel(L10n.t("URL do Servidor Ollama"))
+                                    .accessibilityHint(L10n.t("Endereço HTTP do servidor Ollama local."))
                                 
                                 Button(action: applyURL) {
-                                    Label("Aplicar", systemImage: "checkmark")
+                                    Label(L10n.t("Aplicar"), systemImage: "checkmark")
                                         .font(.callout.weight(.medium))
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .controlSize(.small)
+                                .accessibilityHint(L10n.t("Salva a URL e recarrega os modelos."))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
@@ -310,6 +363,7 @@ struct SettingsView: View {
                                 Text(urlError)
                                     .font(.caption)
                                     .foregroundStyle(PrompteraColors.error)
+                                    .accessibilityLabel(L10n.t("Erro na URL: %@", urlError))
                             }
                         }
                         
@@ -318,7 +372,7 @@ struct SettingsView: View {
                                 .background(PrompteraColors.borderSubtle)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Modelos Disponíveis")
+                                Text(L10n.t("Modelos Disponíveis"))
                                     .font(.caption.weight(.medium))
                                     .foregroundStyle(PrompteraColors.textSecondary)
                                 
@@ -335,7 +389,7 @@ struct SettingsView: View {
                             HStack {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundStyle(PrompteraColors.warning)
-                                Text("Nenhum modelo instalado. Use 'ollama pull <modelo>' no terminal.")
+                                Text(L10n.t("Nenhum modelo instalado. Use 'ollama pull <modelo>' no terminal."))
                                     .font(.callout)
                                     .foregroundStyle(PrompteraColors.textSecondary)
                                 Spacer()
@@ -348,43 +402,69 @@ struct SettingsView: View {
                 }
                 
                 // Methodology Section
-                SettingsSection(title: "Metodologia Oxair (Harness)", icon: "brain.head.profile") {
+                SettingsSection(title: L10n.t("Metodologia Oxair (Harness)"), icon: "brain.head.profile") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("Geração → Auto-Crítica → Refinamento", systemImage: "arrow.right")
+                        Label(L10n.t("Geração → Auto-Crítica → Refinamento"), systemImage: "arrow.right")
                             .font(.callout.weight(.medium))
                             .foregroundStyle(PrompteraColors.textPrimary)
                         
-                        Text("O Promptera implementa a metodologia Oxair em 3 etapas:")
+                        Text(L10n.t("O Promptera implementa a metodologia Oxair em 3 etapas:"))
                             .font(.caption)
                             .foregroundStyle(PrompteraColors.textSecondary)
                         
                         VStack(alignment: .leading, spacing: 6) {
-                            MethodStep(number: "1", title: "Geração", description: "Constrói rascunho estruturado com papel, objetivo e guardrails")
-                            MethodStep(number: "2", title: "Auto-Crítica", description: "Auditoria de adjetivos vagos, premissas ocultas e pontos cegos")
-                            MethodStep(number: "3", title: "Refinamento", description: "Master Prompt final blindado com métricas concretas e schema rígido")
+                            MethodStep(number: "1", title: L10n.t("Geração"), description: L10n.t("Constrói rascunho estruturado com papel, objetivo e guardrails"))
+                            MethodStep(number: "2", title: L10n.t("Auto-Crítica"), description: L10n.t("Auditoria de adjetivos vagos, premissas ocultas e pontos cegos"))
+                            MethodStep(number: "3", title: L10n.t("Refinamento"), description: L10n.t("Master Prompt final blindado com métricas concretas e schema rígido"))
                         }
                     }
                 }
                 
                 // About Section
-                SettingsSection(title: "Sobre", icon: "info.circle") {
+                SettingsSection(title: L10n.t("Sobre"), icon: "info.circle") {
                     HStack(spacing: 12) {
                         PrompteraLogo(size: 44)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Promptera v\(SystemInfo.appVersion)")
+                            Text(L10n.t("Promptera v%@", SystemInfo.appVersion))
                                 .font(.headline)
                                 .foregroundStyle(PrompteraColors.textPrimary)
-                            Text("Meta-Prompt Harness para macOS\nDesenvolvido para Apple Silicon com SwiftUI nativo")
+                            Text(L10n.t("Meta-Prompt Harness para macOS\nDesenvolvido para Apple Silicon com SwiftUI nativo"))
                                 .font(.caption)
                                 .foregroundStyle(PrompteraColors.textSecondary)
                         }
+                        
+                        Spacer()
+                    }
+                    
+                    Divider()
+                        .background(PrompteraColors.borderSubtle)
+                    
+                    HStack(spacing: 12) {
+                        Button {
+                            UpdateController.shared.checkForUpdates()
+                        } label: {
+                            Label(L10n.t("Verificar Atualizações"), systemImage: "arrow.triangle.2.circlepath")
+                                .font(.callout.weight(.medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(!UpdateController.shared.canCheckForUpdates)
+                        .accessibilityHint(L10n.t("Procura uma versão mais recente do Promptera."))
+                        
+                        Toggle(L10n.t("Verificar automaticamente"), isOn: Binding(
+                            get: { UpdateController.shared.automaticallyChecksForUpdates },
+                            set: { UpdateController.shared.automaticallyChecksForUpdates = $0 }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
                     }
                 }
                 
                 // Export/Import Section
-                SettingsSection(title: "Exportar / Importar", icon: "square.and.arrow.up.on.square") {
+                SettingsSection(title: L10n.t("Exportar / Importar"), icon: "square.and.arrow.up.on.square") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Faça backup dos seus prompts, histórico de clipboard e configurações.")
+                        Text(L10n.t("Faça backup dos seus prompts, histórico de clipboard e configurações."))
                             .font(.caption)
                             .foregroundStyle(PrompteraColors.textSecondary)
                         
@@ -392,20 +472,22 @@ struct SettingsView: View {
                             Button {
                                 exportData()
                             } label: {
-                                Label("Exportar Tudo", systemImage: "square.and.arrow.up")
+                                Label(L10n.t("Exportar Tudo"), systemImage: "square.and.arrow.up")
                                     .font(.callout.weight(.medium))
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.regular)
+                            .accessibilityHint(L10n.t("Exporta prompts, biblioteca, clipboard e configurações em um arquivo criptografado."))
                             
                             Button {
                                 importData()
                             } label: {
-                                Label("Importar", systemImage: "square.and.arrow.down")
+                                Label(L10n.t("Importar"), systemImage: "square.and.arrow.down")
                                     .font(.callout.weight(.medium))
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.regular)
+                            .accessibilityHint(L10n.t("Importa um backup exportado anteriormente."))
                         }
                         
                         Divider()
@@ -415,20 +497,22 @@ struct SettingsView: View {
                             Button {
                                 exportPromptsOnly()
                             } label: {
-                                Label("Exportar Prompts", systemImage: "doc.text")
+                                Label(L10n.t("Exportar Prompts"), systemImage: "doc.text")
                                     .font(.callout.weight(.medium))
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
+                            .accessibilityHint(L10n.t("Exporta apenas o prompt atual e a biblioteca."))
                             
                             Button {
                                 exportClipboardOnly()
                             } label: {
-                                Label("Exportar Clipboard", systemImage: "doc.on.clipboard")
+                                Label(L10n.t("Exportar Clipboard"), systemImage: "doc.on.clipboard")
                                     .font(.callout.weight(.medium))
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
+                            .accessibilityHint(L10n.t("Exporta apenas o histórico de clipboard."))
                         }
                     }
                 }
@@ -445,12 +529,24 @@ struct SettingsView: View {
         }
     }
     
+    private var accentOptions: [AccentOption] {
+        [
+            AccentOption(hex: nil, name: L10n.t("Tema")),
+            AccentOption(hex: "8B5CF6", name: L10n.t("Roxo")),
+            AccentOption(hex: "0EA5E9", name: L10n.t("Azul")),
+            AccentOption(hex: "10B981", name: L10n.t("Verde")),
+            AccentOption(hex: "F97316", name: L10n.t("Laranja")),
+            AccentOption(hex: "F43F5E", name: L10n.t("Rosa")),
+            AccentOption(hex: "64748B", name: L10n.t("Grafite")),
+        ]
+    }
+
     private func applyURL() {
         let trimmed = ollamaUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmed),
               let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
               url.host != nil else {
-            urlError = "URL inválida. Use o formato http://host:porta"
+            urlError = L10n.t("URL inválida. Use o formato http://host:porta")
             return
         }
         urlError = nil
@@ -471,9 +567,9 @@ struct SettingsView: View {
             do {
                 let data = try Data(contentsOf: url)
                 try state.importData(data)
-                state.statusMessage = "Dados importados com sucesso!"
+                state.setStatus(L10n.t("Dados importados com sucesso!"), kind: .success)
             } catch {
-                state.errorMessage = "Erro ao importar: \(error.localizedDescription)"
+                state.errorMessage = L10n.t("Erro ao importar: %@", error.localizedDescription)
             }
         }
     }
@@ -492,7 +588,7 @@ struct SettingsView: View {
         do {
             data = try makeData()
         } catch {
-            state.errorMessage = "Erro ao exportar: \(error.localizedDescription)"
+            state.errorMessage = L10n.t("Erro ao exportar: %@", error.localizedDescription)
             return
         }
         let panel = NSSavePanel()
@@ -502,11 +598,61 @@ struct SettingsView: View {
             guard response == .OK, let url = panel.url else { return }
             do {
                 try data.write(to: url, options: .atomic)
-                state.statusMessage = "Exportado para \(url.lastPathComponent)"
+                state.setStatus(L10n.t("Exportado para %@", url.lastPathComponent), kind: .success)
             } catch {
-                state.errorMessage = "Erro ao salvar arquivo: \(error.localizedDescription)"
+                state.errorMessage = L10n.t("Erro ao salvar arquivo: %@", error.localizedDescription)
             }
         }
+    }
+}
+
+struct AccentOption: Identifiable {
+    let hex: String?
+    let name: String
+
+    var id: String { hex ?? "theme" }
+}
+
+struct AccentSwatch: View {
+    let color: Color
+    let name: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 26, height: 26)
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .overlay(
+                    Circle().stroke(isSelected ? color : Color.clear, lineWidth: 2)
+                )
+                .scaleEffect(isHovered && !isSelected ? 1.08 : 1)
+
+                Text(name)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? PrompteraColors.textPrimary : PrompteraColors.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) { isHovered = hovering }
+        }
+        .help(L10n.t("Cor de destaque: %@", name))
+        .accessibilityLabel(L10n.t("Cor de destaque: %@", name))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -547,8 +693,8 @@ struct ThemeSwatch: View {
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.15)) { isHovered = hovering }
         }
-        .help("Tema \(theme.displayName)")
-        .accessibilityLabel("Tema \(theme.displayName)")
+        .help(L10n.t("Tema %@", theme.displayName))
+        .accessibilityLabel(L10n.t("Tema %@", theme.displayName))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -616,6 +762,9 @@ struct ModelRow: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(L10n.t("Modelo %@", model.name))
+        .accessibilityHint(model.formattedSize)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

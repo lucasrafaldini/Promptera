@@ -165,4 +165,47 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(titles.contains("Análise & Raciocínio Profundo"))
         XCTAssertTrue(titles.contains("Copywriting & Conteúdo"))
     }
+
+    func testPromptLibraryItemDerivesTitleFromInput() {
+        let item = PromptLibraryItem(
+            input: "Create a REST API\nwith JWT auth",
+            output: "Master prompt",
+            presetID: "coding",
+            modeRawValue: HarnessMode.standard.rawValue,
+            model: "llama3.1"
+        )
+
+        XCTAssertEqual(item.title, "Create a REST API")
+        XCTAssertEqual(item.preset?.id, "coding")
+        XCTAssertEqual(item.mode, .standard)
+    }
+
+    func testPromptLibraryItemCodableRoundTrip() throws {
+        let item = PromptLibraryItem(
+            input: "Input",
+            output: "Output",
+            presetID: "universal",
+            modeRawValue: HarnessMode.iterativeLoop.rawValue,
+            model: "llama3.1"
+        )
+
+        let data = try JSONEncoder().encode(item)
+        let decoded = try JSONDecoder().decode(PromptLibraryItem.self, from: data)
+
+        XCTAssertEqual(decoded, item)
+    }
+
+    func testPromptLibraryItemFuzzySearchAcrossFields() {
+        let item = PromptLibraryItem(
+            input: "Create a REST API",
+            output: "You are a backend engineer",
+            presetID: "coding",
+            modeRawValue: HarnessMode.standard.rawValue,
+            model: "llama3.1"
+        )
+
+        XCTAssertTrue(item.matches("rest api"))
+        XCTAssertTrue(item.matches("backend"))
+        XCTAssertFalse(item.matches("marketing"))
+    }
 }

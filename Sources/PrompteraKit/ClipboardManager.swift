@@ -53,7 +53,19 @@ public final class ClipboardManager: ObservableObject {
         if query.isEmpty {
             return history
         }
-        return history.filter { $0.matches(query) }
+
+        return history
+            .compactMap { item -> (item: ClipboardItem, match: FuzzyMatch)? in
+                guard let match = item.fuzzyMatch(query) else { return nil }
+                return (item, match)
+            }
+            .sorted { lhs, rhs in
+                if lhs.match.score != rhs.match.score {
+                    return lhs.match.score > rhs.match.score
+                }
+                return lhs.item.timestamp > rhs.item.timestamp
+            }
+            .map(\.item)
     }
 
     public var latestItem: ClipboardItem? {

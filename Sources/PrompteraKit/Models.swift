@@ -48,9 +48,14 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable, Sendabl
         hasher.combine(id)
     }
 
-    /// Case- and diacritic-insensitive match without allocating lowercased copies.
+    /// Case- and diacritic-insensitive fuzzy match.
     public func matches(_ query: String) -> Bool {
-        content.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        fuzzyMatch(query) != nil
+    }
+
+    /// Relevance-scored fuzzy match, used by the clipboard search ranking.
+    public func fuzzyMatch(_ query: String) -> FuzzyMatch? {
+        FuzzyMatcher.match(query: query, in: content)
     }
 
     private static func makePreview(_ content: String) -> String {
@@ -61,6 +66,67 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable, Sendabl
             return oneLine
         }
         return String(oneLine.prefix(100)) + "..."
+    }
+}
+
+public struct PromptLibraryItem: Identifiable, Codable, Equatable, Hashable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var input: String
+    public var output: String
+    public var presetID: String
+    public var modeRawValue: String
+    public var model: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        title: String? = nil,
+        input: String,
+        output: String,
+        presetID: String,
+        modeRawValue: String,
+        model: String,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title ?? Self.makeTitle(from: input)
+        self.input = input
+        self.output = output
+        self.presetID = presetID
+        self.modeRawValue = modeRawValue
+        self.model = model
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public var mode: HarnessMode? {
+        HarnessMode(rawValue: modeRawValue)
+    }
+
+    public var preset: HarnessPreset? {
+        HarnessPreset.presets.first { $0.id == presetID }
+    }
+
+    public func fuzzyMatch(_ query: String) -> FuzzyMatch? {
+        [title, input, output]
+            .compactMap { FuzzyMatcher.match(query: query, in: $0) }
+            .max { $0.score < $1.score }
+    }
+
+    public func matches(_ query: String) -> Bool {
+        fuzzyMatch(query) != nil
+    }
+
+    public static func makeTitle(from input: String) -> String {
+        let firstLine = input
+            .split(whereSeparator: { $0.isNewline })
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = String(firstLine.prefix(64))
+        return title.isEmpty ? L10n.t("Prompt sem título") : title
     }
 }
 
@@ -90,6 +156,10 @@ public enum HarnessMode: String, CaseIterable, Identifiable, Codable {
     
     public var id: String { rawValue }
     
+    public var displayName: String { L10n.t(rawValue) }
+    
+    public var displayDescription: String { L10n.t(description) }
+    
     public var description: String {
         switch self {
         case .standard:
@@ -108,6 +178,9 @@ public struct HarnessPreset: Identifiable, Equatable, Hashable {
     public let icon: String
     public let description: String
     public let domainGuidance: String
+    
+    public var displayTitle: String { L10n.t(title) }
+    public var displayDescription: String { L10n.t(description) }
     
     public init(id: String, title: String, icon: String, description: String, domainGuidance: String) {
         self.id = id

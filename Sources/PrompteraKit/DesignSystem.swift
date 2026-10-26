@@ -56,11 +56,11 @@ public enum PrompteraTheme: String, CaseIterable, Identifiable, Codable, Sendabl
 
     public var displayName: String {
         switch self {
-        case .aurora: return "Aurora"
-        case .ocean: return "Oceano"
-        case .sunset: return "Pôr do Sol"
-        case .forest: return "Floresta"
-        case .graphite: return "Grafite"
+        case .aurora: return L10n.t("Aurora")
+        case .ocean: return L10n.t("Oceano")
+        case .sunset: return L10n.t("Pôr do Sol")
+        case .forest: return L10n.t("Floresta")
+        case .graphite: return L10n.t("Grafite")
         }
     }
 
@@ -93,9 +93,9 @@ public enum PrompteraAppearance: String, CaseIterable, Identifiable, Codable, Se
 
     public var displayName: String {
         switch self {
-        case .system: return "Sistema"
-        case .light: return "Claro"
-        case .dark: return "Escuro"
+        case .system: return L10n.t("Sistema")
+        case .light: return L10n.t("Claro")
+        case .dark: return L10n.t("Escuro")
         }
     }
 
@@ -126,6 +126,7 @@ public final class ThemeStore {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let themeKey = "promptera_theme"
     @ObservationIgnored private let appearanceKey = "promptera_appearance"
+    @ObservationIgnored private let accentKey = "promptera_accent_color"
 
     public var theme: PrompteraTheme {
         didSet { defaults.set(theme.rawValue, forKey: themeKey) }
@@ -135,10 +136,23 @@ public final class ThemeStore {
         didSet { defaults.set(appearance.rawValue, forKey: appearanceKey) }
     }
 
+    /// Optional user-selected accent (hex string such as "F97316").
+    /// `nil` keeps the accent defined by the active theme.
+    public var accentHex: String? {
+        didSet {
+            if let accentHex {
+                defaults.set(accentHex, forKey: accentKey)
+            } else {
+                defaults.removeObject(forKey: accentKey)
+            }
+        }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.theme = defaults.string(forKey: themeKey).flatMap(PrompteraTheme.init(rawValue:)) ?? .aurora
         self.appearance = defaults.string(forKey: appearanceKey).flatMap(PrompteraAppearance.init(rawValue:)) ?? .system
+        self.accentHex = defaults.string(forKey: accentKey)
     }
 
     /// Applies the appearance to every app window (popover, save/open panels).
@@ -151,17 +165,27 @@ public final class ThemeStore {
 public enum PrompteraColors {
     private static var theme: PrompteraTheme { ThemeStore.shared.theme }
 
+    private static var accentOverride: Color? {
+        guard let hex = ThemeStore.shared.accentHex,
+              let value = UInt32(hex, radix: 16) else { return nil }
+        return Color(hex: value)
+    }
+
     // MARK: - Brand Gradient
 
     /// Primary brand gradient (diagonal)
     public static var brandGradient: LinearGradient {
-        LinearGradient(colors: theme.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        var colors = theme.colors
+        if let accentOverride {
+            colors[2] = accentOverride
+        }
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     /// Subtle brand gradient for backgrounds
     public static var brandGradientSubtle: LinearGradient {
         LinearGradient(
-            colors: [theme.primary.opacity(0.15), theme.secondary.opacity(0.1), theme.accent.opacity(0.15)],
+            colors: [theme.primary.opacity(0.15), theme.secondary.opacity(0.1), brandAccent.opacity(0.15)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -169,14 +193,18 @@ public enum PrompteraColors {
 
     /// Horizontal brand gradient for horizontal elements
     public static var brandGradientHorizontal: LinearGradient {
-        LinearGradient(colors: theme.colors, startPoint: .leading, endPoint: .trailing)
+        var colors = theme.colors
+        if let accentOverride {
+            colors[2] = accentOverride
+        }
+        return LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
     }
 
     // MARK: - Semantic Colors
 
     public static var brandPrimary: Color { theme.primary }
     public static var brandSecondary: Color { theme.secondary }
-    public static var brandAccent: Color { theme.accent }
+    public static var brandAccent: Color { accentOverride ?? theme.accent }
 
     // MARK: - Status Colors
 

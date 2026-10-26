@@ -382,6 +382,6 @@ final class E2EIntegrationTests: XCTestCase {
         state.cancelGeneration()
 
         XCTAssertFalse(state.isGenerating)
-        XCTAssertEqual(state.statusMessage, "Geração cancelada")
+        XCTAssertEqual(state.statusMessage, L10n.t("Geração cancelada"))
     }
 }

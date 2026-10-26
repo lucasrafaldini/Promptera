@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "promptera",
+    defaultLocalization: "pt",
     platforms: [
         .macOS(.v14)
     ],
@@ -11,12 +12,15 @@ let package = Package(
         .executable(name: "promptera", targets: ["PrompteraCLI"]),
         .library(name: "PrompteraKit", targets: ["PrompteraKit"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.1")
+    ],
     targets: [
         .target(
             name: "PrompteraKit",
             dependencies: [],
-            path: "Sources/PrompteraKit"
+            path: "Sources/PrompteraKit",
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "PrompteraCLI",
@@ -25,7 +29,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "PrompteraApp",
-            dependencies: ["PrompteraKit"],
+            dependencies: [
+                "PrompteraKit",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/PrompteraApp"
         ),
         .testTarget(

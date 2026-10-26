@@ -4,7 +4,11 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
-echo "🔨 Compilando Promptera em modo Release..."
+VERSION="${PROMPTERA_VERSION:-1.1.0}"
+VERSION="${VERSION#v}"
+BUILD_NUMBER="${PROMPTERA_BUILD:-2}"
+
+echo "🔨 Compilando Promptera $VERSION ($BUILD_NUMBER) em modo Release..."
 swift build -c release
 
 APP_DIR="$DIR/build/Promptera.app"
@@ -19,6 +23,18 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 # Copy binary
 cp "$DIR/.build/release/PrompteraApp" "$MACOS_DIR/PrompteraApp"
 
+# SwiftPM resource bundles (localizations, etc.)
+for bundle in "$DIR"/.build/release/*.bundle; do
+    [ -e "$bundle" ] && cp -R "$bundle" "$RESOURCES_DIR/"
+done
+
+# Sparkle is a dynamic framework; ship it inside the app and add the rpath.
+if [ -d "$DIR/.build/release/Sparkle.framework" ]; then
+    mkdir -p "$CONTENTS_DIR/Frameworks"
+    cp -R "$DIR/.build/release/Sparkle.framework" "$CONTENTS_DIR/Frameworks/"
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS_DIR/PrompteraApp" 2>/dev/null || true
+fi
+
 # App icon (regenerate with: swift scripts/generate_icon.swift Resources)
 if [ ! -f "$DIR/Resources/AppIcon.icns" ]; then
     echo "🎨 Gerando ícone..."
@@ -27,7 +43,7 @@ fi
 cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 
 # Write Info.plist
-cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
+cat << EOF > "$CONTENTS_DIR/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -45,9 +61,9 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.0</string>
+    <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
@@ -55,6 +71,12 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/lucasrafaldini/Promptera/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>nXVGT8+XDRmAze4eZxcLpNGDDsjnPPxSw8apy8m7kSM=</string>
+    <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>
 </plist>

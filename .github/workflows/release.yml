@@ -54,9 +54,43 @@ jobs:
         run: swift test
 
       - name: Build app bundle
+        env:
+          PROMPTERA_VERSION: ${{ steps.version.outputs.VERSION }}
+          PROMPTERA_BUILD: ${{ github.run_number }}
         run: |
           chmod +x scripts/build_app.sh
           ./scripts/build_app.sh
+
+      - name: Sign app (Developer ID)
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ]; then
+            echo "::warning::MACOS_CERTIFICATE is not configured; keeping the ad-hoc signature."
+            exit 0
+          fi
+          chmod +x scripts/sign_app.sh
+          ./scripts/sign_app.sh build/Promptera.app
+
+      - name: Create ZIP
+        run: |
+          cd build
+          ditto -c -k --keepParent Promptera.app Promptera-${{ steps.version.outputs.VERSION }}.zip
+
+      - name: Notarize ZIP
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::warning::Notarization secrets are not configured; skipping notarization."
+            exit 0
+          fi
+          chmod +x scripts/notarize.sh
+          ./scripts/notarize.sh "build/Promptera-${{ steps.version.outputs.VERSION }}.zip"
 
       - name: Create DMG
         run: |
@@ -65,16 +99,43 @@ jobs:
             -ov -format UDZO \
             build/Promptera-${{ steps.version.outputs.VERSION }}.dmg
 
-      - name: Create ZIP
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          cd build
-          ditto -c -k --keepParent Promptera.app Promptera-${{ steps.version.outputs.VERSION }}.zip
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::warning::Notarization secrets are not configured; skipping notarization."
+            exit 0
+          fi
+          ./scripts/notarize.sh "build/Promptera-${{ steps.version.outputs.VERSION }}.dmg"
 
       - name: Generate checksums
         run: |
           cd build
           shasum -a 256 Promptera-${{ steps.version.outputs.VERSION }}.dmg Promptera-${{ steps.version.outputs.VERSION }}.zip > Promptera-${{ steps.version.outputs.VERSION }}.sha256
           cat Promptera-${{ steps.version.outputs.VERSION }}.sha256
+
+      - name: Generate Sparkle appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::warning::SPARKLE_PRIVATE_KEY is not configured; skipping appcast generation."
+            exit 0
+          fi
+          curl -sL --fail -o Sparkle.tar.xz \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz
+          tar -xf Sparkle.tar.xz
+          mkdir -p build/appcast
+          cp "build/Promptera-$VERSION.zip" build/appcast/
+          echo "$SPARKLE_PRIVATE_KEY" | ./bin/generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/lucasrafaldini/Promptera/releases/download/$VERSION/" \
+            build/appcast
+          cp build/appcast/appcast.xml build/appcast.xml
 
       - name: Check for existing release
         id: existing
@@ -104,3 +165,10 @@ jobs:
             build/Promptera-${{ steps.version.outputs.VERSION }}.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload appcast
+        if: steps.existing.outputs.exists != 'true' && hashFiles('build/appcast.xml') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.version.outputs.VERSION }}" build/appcast.xml --clobber

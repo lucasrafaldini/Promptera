@@ -67,10 +67,12 @@ final class ImprovementsTests: XCTestCase {
 
         store.theme = .ocean
         store.appearance = .dark
+        store.accentHex = "F97316"
 
         let reloaded = ThemeStore(defaults: defaults)
         XCTAssertEqual(reloaded.theme, .ocean)
         XCTAssertEqual(reloaded.appearance, .dark)
+        XCTAssertEqual(reloaded.accentHex, "F97316")
     }
 
     func testEveryThemeHasThreeStops() {

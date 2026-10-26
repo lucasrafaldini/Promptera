@@ -60,7 +60,7 @@ struct ConfigHeaderView: View {
                     HStack(spacing: 6) {
                         ProgressView()
                             .controlSize(.mini)
-                        Text(state.isOllamaConnected ? "Carregando modelos..." : "Ollama desconectado")
+                        Text(state.isOllamaConnected ? L10n.t("Carregando modelos...") : L10n.t("Ollama desconectado"))
                             .font(.caption)
                             .foregroundStyle(PrompteraColors.textSecondary)
                     }
@@ -82,7 +82,7 @@ struct ConfigHeaderView: View {
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(state.selectedModel.isEmpty ? "Selecionar modelo" : state.selectedModel)
+                            Text(state.selectedModel.isEmpty ? L10n.t("Selecionar modelo") : state.selectedModel)
                                 .font(.callout.weight(.medium))
                                 .lineLimit(1)
                                 .foregroundStyle(state.selectedModel.isEmpty ? PrompteraColors.textSecondary : PrompteraColors.textPrimary)
@@ -102,6 +102,8 @@ struct ConfigHeaderView: View {
                     }
                     .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
+                .accessibilityLabel(L10n.t("Modelo local"))
+                .accessibilityHint(L10n.t("Seleciona o modelo do Ollama usado para gerar o prompt."))
                 }
                 
                 // Mode Selector
@@ -112,8 +114,8 @@ struct ConfigHeaderView: View {
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(mode.rawValue)
-                                    Text(mode.description)
+                                    Text(mode.displayName)
+                                    Text(mode.displayDescription)
                                         .font(.caption2)
                                         .foregroundStyle(PrompteraColors.textSecondary)
                                 }
@@ -128,7 +130,7 @@ struct ConfigHeaderView: View {
                         Image(systemName: modeIcon(for: state.selectedMode))
                             .font(.caption)
                             .foregroundStyle(PrompteraColors.textSecondary)
-                        Text(state.selectedMode.rawValue)
+                        Text(state.selectedMode.displayName)
                             .font(.callout.weight(.medium))
                             .lineLimit(1)
                             .foregroundStyle(PrompteraColors.textPrimary)
@@ -148,7 +150,9 @@ struct ConfigHeaderView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
-                .help(state.selectedMode.description)
+                .help(state.selectedMode.displayDescription)
+                .accessibilityLabel(L10n.t("Modo de geração"))
+                .accessibilityHint(state.selectedMode.displayDescription)
             }
         }
         .padding(14)
@@ -174,7 +178,7 @@ struct PresetsScrollView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Domínios")
+            Text(L10n.t("Domínios"))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(PrompteraColors.textSecondary)
             
@@ -204,7 +208,7 @@ struct PresetPill: View {
             HStack(spacing: 6) {
                 Image(systemName: preset.icon)
                     .font(.system(size: 12, weight: .medium))
-                Text(preset.title)
+                Text(preset.displayTitle)
                     .font(.caption.weight(.medium))
             }
             .padding(.horizontal, 14)
@@ -229,7 +233,10 @@ struct PresetPill: View {
             .scaleEffect(isSelected ? 1.02 : 1.0)
         }
         .buttonStyle(.plain)
-        .help(preset.description)
+        .help(preset.displayDescription)
+        .accessibilityLabel(preset.displayTitle)
+        .accessibilityHint(preset.displayDescription)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
     }
 }
@@ -248,7 +255,7 @@ struct InputAreaView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Entrada", systemImage: "text.cursor")
+                Label(L10n.t("Entrada"), systemImage: "text.cursor")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(PrompteraColors.textSecondary)
                 
@@ -258,22 +265,24 @@ struct InputAreaView: View {
                     state.useLatestClipboard()
                     isInputFocused = true
                 } label: {
-                    Label("Colar do Clipboard", systemImage: "doc.on.clipboard")
+                    Label(L10n.t("Colar do Clipboard"), systemImage: "doc.on.clipboard")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(clipboardManager.latestItem == nil)
+                .accessibilityHint(L10n.t("Substitui a entrada pelo item mais recente do clipboard."))
                 
                 if !state.inputText.isEmpty {
                     Button {
                         state.inputText = ""
                     } label: {
-                        Label("Limpar", systemImage: "trash")
+                        Label(L10n.t("Limpar"), systemImage: "trash")
                             .font(.caption)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .accessibilityHint(L10n.t("Limpa o texto de entrada."))
                 }
             }
             
@@ -292,20 +301,23 @@ struct InputAreaView: View {
                     .padding(12)
                     .focused($isInputFocused)
                     .scrollContentBackground(.hidden)
+                    .accessibilityLabel(L10n.t("Entrada de texto"))
+                    .accessibilityHint(L10n.t("Descreva sua ideia ou cole o texto que deseja transformar em Master Prompt."))
                 
                 if state.inputText.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Cole seu texto ou descreva sua ideia...")
+                        Text(L10n.t("Cole seu texto ou descreva sua ideia..."))
                             .foregroundStyle(PrompteraColors.textTertiary)
                             .font(.callout)
                         
-                        Text("Ex: \"Preciso de um script para sincronizar arquivos S3 com retry exponencial e logs estruturados em JSON\"")
+                        Text(L10n.t("Ex: \"Preciso de um script para sincronizar arquivos S3 com retry exponencial e logs estruturados em JSON\""))
                             .foregroundStyle(PrompteraColors.textTertiary.opacity(0.7))
                             .font(.caption)
                             .italic()
                     }
                     .padding(16)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
         }
@@ -323,7 +335,7 @@ struct ActionButtonView: View {
                         .controlSize(.regular)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Gerando Master Prompt...")
+                        Text(L10n.t("Gerando Master Prompt..."))
                             .font(.callout.weight(.medium))
                             .foregroundStyle(PrompteraColors.textPrimary)
                         Text(state.statusMessage)
@@ -337,12 +349,13 @@ struct ActionButtonView: View {
                     Button {
                         state.cancelGeneration()
                     } label: {
-                        Label("Cancelar", systemImage: "xmark.circle.fill")
+                        Label(L10n.t("Cancelar"), systemImage: "xmark.circle.fill")
                             .font(.callout.weight(.medium))
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.regular)
                     .keyboardShortcut(.escape, modifiers: [])
+                    .accessibilityHint(L10n.t("Interrompe a geração em andamento."))
                 }
                 .padding(16)
                 .background(PrompteraColors.brandPrimary.opacity(0.1))
@@ -353,27 +366,32 @@ struct ActionButtonView: View {
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             } else {
-                HStack {
-                    if !state.statusMessage.isEmpty && state.statusMessage != "Pronto" {
-                        let isSuccess = state.statusMessage.hasPrefix("Prompt concluído")
-                            || state.statusMessage.hasPrefix("Pronto")
-                            || state.statusMessage.hasPrefix("Exportado")
-                            || state.statusMessage.hasPrefix("Dados importados")
-                        Label(state.statusMessage, systemImage: isSuccess ? "checkmark.circle.fill" : "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(isSuccess ? PrompteraColors.success : PrompteraColors.textSecondary)
-                            .lineLimit(2)
+                VStack(alignment: .leading, spacing: 10) {
+                    if state.statusKind != .idle && !state.statusMessage.isEmpty {
+                        let isSuccess = state.statusKind == .success
+                        let isError = state.statusKind == .error
+                        Label(
+                            state.statusMessage,
+                            systemImage: isSuccess
+                                ? "checkmark.circle.fill"
+                                : (isError ? "exclamationmark.triangle.fill" : "info.circle")
+                        )
+                        .font(.caption)
+                        .foregroundStyle(
+                            isSuccess
+                                ? PrompteraColors.success
+                                : (isError ? PrompteraColors.error : PrompteraColors.textSecondary)
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
                     }
-                    
-                    Spacer()
-                    
+
                     Button {
                         state.generatePrompt()
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "sparkles")
                                 .font(.title3.weight(.semibold))
-                            Text("Gerar Master Prompt")
+                            Text(L10n.t("Gerar Master Prompt"))
                                 .font(.headline.weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
@@ -382,6 +400,7 @@ struct ActionButtonView: View {
                     .buttonStyle(BrandButtonStyle(cornerRadius: 12))
                     .disabled(state.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.selectedModel.isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
+                    .accessibilityHint(L10n.t("Gera um Master Prompt com o modelo e o modo selecionados. Atalho: Command + Return."))
                 }
             }
         }
@@ -395,13 +414,13 @@ struct OutputAreaView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Master Prompt Gerado", systemImage: "doc.text.fill")
+                Label(L10n.t("Master Prompt Gerado"), systemImage: "doc.text.fill")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(PrompteraColors.textSecondary)
                 
                 Spacer()
                 
-                Text("\(state.outputText.count) caracteres")
+                Text(L10n.t("%d caracteres", state.outputText.count))
                     .font(.caption2)
                     .foregroundStyle(PrompteraColors.textSecondary)
                     .padding(.horizontal, 8)
@@ -415,24 +434,28 @@ struct OutputAreaView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: state.copiedToast ? "checkmark.circle.fill" : "doc.on.doc.fill")
-                            Text(state.copiedToast ? "Copiado!" : "Copiar")
+                            Text(state.copiedToast ? L10n.t("Copiado!") : L10n.t("Copiar"))
                         }
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                     }
                     .buttonStyle(BrandButtonStyle(cornerRadius: 8))
+                    .accessibilityLabel(state.copiedToast ? L10n.t("Copiado!") : L10n.t("Copiar Master Prompt"))
+                    .accessibilityHint(L10n.t("Copia o Master Prompt gerado para o clipboard."))
                 }
             }
             
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(state.outputText.isEmpty ? "O Master Prompt estruturado aparecerá aqui em tempo real..." : state.outputText)
+                    Text(state.outputText.isEmpty ? L10n.t("O Master Prompt estruturado aparecerá aqui em tempo real...") : state.outputText)
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(state.outputText.isEmpty ? PrompteraColors.textTertiary : PrompteraColors.textPrimary)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
+                        .accessibilityLabel(L10n.t("Master Prompt gerado"))
+                        .accessibilityValue(state.outputText.isEmpty ? L10n.t("Ainda não há resultado") : state.outputText)
                     Color.clear
                         .frame(height: 1)
                         .id("outputBottom")
@@ -474,7 +497,7 @@ struct ErrorBanner: View {
             Spacer()
             
             if let onRetry {
-                Button("Tentar novamente", action: onRetry)
+                Button(L10n.t("Tentar novamente"), action: onRetry)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
@@ -488,8 +511,8 @@ struct ErrorBanner: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Dispensar")
-                .accessibilityLabel("Dispensar aviso")
+                .help(L10n.t("Dispensar"))
+                .accessibilityLabel(L10n.t("Dispensar aviso"))
             }
         }
         .padding(14)
