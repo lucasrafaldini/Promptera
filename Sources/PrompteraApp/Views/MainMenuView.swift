@@ -138,22 +138,27 @@ public struct MainMenuView: View {
             
             // Tab Contents with transition
             Group {
-                switch selectedTab {
-                case .generator:
-                    PromptGeneratorView(state: state)
-                case .clipboard:
-                    ClipboardHistoryView(clipboardManager: state.clipboardManager, state: state)
-                case .library:
-                    PromptLibraryView(state: state)
-                case .settings:
-                    SettingsView(state: state)
+                if !state.hasCompletedGemmaSetup() {
+                    // Assistente de primeira execução: instala Ollama e baixa o Gemma.
+                    OllamaSetupWizardView(state: state)
+                } else {
+                    switch selectedTab {
+                    case .generator:
+                        PromptGeneratorView(state: state)
+                    case .clipboard:
+                        ClipboardHistoryView(clipboardManager: state.clipboardManager, state: state)
+                    case .library:
+                        PromptLibraryView(state: state)
+                    case .settings:
+                        SettingsView(state: state)
+                    }
                 }
             }
             .transition(.opacity.combined(with: .offset(y: 6)))
             .animation(tabAnimation, value: selectedTab)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 600, height: 600)
+        .frame(width: 600, height: 640)
         .background(PrompteraColors.surfacePrimary)
         .tint(PrompteraColors.brandPrimary)
         .task { await state.refreshModelsIfNeeded() }
@@ -397,6 +402,94 @@ struct SettingsView: View {
                             .padding(12)
                             .background(PrompteraColors.warning.opacity(0.1))
                             .cornerRadius(8)
+                        }
+                    }
+                }
+                
+                // Gemma & Harness Section
+                SettingsSection(title: L10n.t("Gemma & Guardrail Harness"), icon: "wand.and.stars") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill((state.useGemmaGuardrailHarness && state.selectedModel.lowercased().contains("gemma")) ? PrompteraColors.success : PrompteraColors.textSecondary.opacity(0.4))
+                                .frame(width: 12, height: 12)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(state.useGemmaGuardrailHarness ? L10n.t("Harness Gemma ativo") : L10n.t("Harness Gemma desativado"))
+                                    .font(.callout.weight(.medium))
+                                    .foregroundStyle(PrompteraColors.textPrimary)
+                                Text(state.useGemmaGuardrailHarness
+                                    ? L10n.t("Saída JSON estruturada, anti-delírio e língua do vendor (Inglês).")
+                                    : L10n.t("Usa o harness Oxair padrão com o modelo selecionado."))
+                                    .font(.caption)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
+                            }
+                            Spacer()
+                        }
+                        
+                        Divider().background(PrompteraColors.borderSubtle)
+                        
+                        Toggle(L10n.t("Usar Gemma Guardrail Harness (anti-delírio)"), isOn: $state.useGemmaGuardrailHarness)
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(PrompteraColors.textPrimary)
+                            .help(L10n.t("Quando o Gemma está selecionado, força saída JSON estruturada e auto-reparo para evitar delírios."))
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.t("Idioma de saída do Master Prompt"))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                            Picker(L10n.t("Idioma"), selection: $state.masterPromptLanguage) {
+                                ForEach(PrompteraState.MasterPromptLanguage.allCases) { language in
+                                    Text(language.rawValue).tag(language)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .help(L10n.t("O padrão é Inglês, a língua do vendor dos LLMs alvo."))
+                        }
+                        
+                        Divider().background(PrompteraColors.borderSubtle)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.t("Modelo Gemma"))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(PrompteraColors.textSecondary)
+                            
+                            HStack(spacing: 8) {
+                                ForEach(Array(state.gemmaModelOptions.enumerated()), id: \.offset) { _, option in
+                                    GemmaModelSettingsPill(
+                                        name: option.name,
+                                        label: option.label,
+                                        isSelected: state.selectedGemmaModel == option.name
+                                    ) {
+                                        state.updateSelectedGemmaModel(option.name)
+                                    }
+                                }
+                                if state.isPullingGemma {
+                                    ProgressView().controlSize(.small)
+                                }
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Button {
+                                    Task { await state.pullGemmaModel() }
+                                } label: {
+                                    if state.isPullingGemma {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Label(L10n.t("Baixar/Reinstalar Gemma"), systemImage: "arrow.down.circle")
+                                            .font(.callout.weight(.medium))
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                                .disabled(state.isPullingGemma || !state.isOllamaConnected)
+                                
+                                Spacer()
+                                
+                                Text(state.gemmaPullStatus)
+                                    .font(.caption2)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                 }
@@ -790,5 +883,43 @@ struct MethodStep: View {
                     .foregroundStyle(PrompteraColors.textSecondary)
             }
         }
+    }
+}
+
+struct GemmaModelSettingsPill: View {
+    let name: String
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                Text(label)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                ZStack {
+                    if isSelected {
+                        PrompteraColors.brandGradient
+                            .clipShape(Capsule())
+                    } else {
+                        Capsule().fill(PrompteraColors.surfaceSecondary)
+                            .overlay(Capsule().stroke(PrompteraColors.borderDefault, lineWidth: 1))
+                    }
+                }
+            )
+            .foregroundStyle(isSelected ? PrompteraColors.textOnBrand : PrompteraColors.textPrimary)
+        }
+        .buttonStyle(.plain)
+        .help(L10n.t("Selecionar modelo %@", name))
     }
 }

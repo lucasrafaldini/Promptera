@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AppKit
 
 @MainActor
 public final class PrompteraState: ObservableObject {
@@ -9,6 +10,26 @@ public final class PrompteraState: ObservableObject {
         case info
         case success
         case error
+    }
+
+    /// Status do assistente de configuração Ollama + Gemma.
+    public enum OllamaSetupStatus: Equatable {
+        case checking
+        case ollamaNotInstalled
+        case ollamaInstalledNotRunning
+        case ollamaRunning(models: [OllamaModelInfo])
+        case ollamaRunningGemmaMissing(installed: [OllamaModelInfo])
+        case ready(gemmaModel: String)
+        case error(String)
+    }
+
+    /// Língua de saída do Master Prompt otimizado.
+    /// Como otimizamos prompts para LLMs de terceiros, o padrão é a língua do vendor (Inglês).
+    public enum MasterPromptLanguage: String, CaseIterable, Identifiable, Codable, Sendable {
+        case english = "Inglês (língua do vendor)"
+        case portuguese = "Português"
+
+        public var id: String { rawValue }
     }
 
     @Published public var availableModels: [OllamaModelInfo] = []
@@ -30,6 +51,7 @@ public final class PrompteraState: ObservableObject {
     public let clipboardManager: ClipboardManager
     public let ollamaClient: OllamaClient
     public let promptHarness: PromptHarness
+    public let gemmaGuardrailHarness: GemmaGuardrailHarness
     
     private var generationTask: Task<Void, Never>?
     private var currentGenerationID: UUID?
@@ -43,6 +65,38 @@ public final class PrompteraState: ObservableObject {
     private let ollamaBaseURLKey = "promptera_ollama_base_url"
     private let libraryStorageKey = "promptera_prompt_library"
     private let maxLibraryItems = 100
+
+    // MARK: - Setup Ollama + Gemma (primeira execução / foco no Gemma)
+
+    /// Modelo Gemma recomendado (leve e eficaz).
+    public let recommendedGemmaModel = "gemma3:1b"
+    /// Alternativas maiores, quando o usuário quiser mais qualidade.
+    public let alternativeGemmaModels = ["gemma3:4b", "gemma3:12b"]
+
+    @Published public var ollamaSetupStatus: OllamaSetupStatus = .checking
+    @Published public var isPullingGemma: Bool = false
+    @Published public var gemmaPullProgress: Double = 0
+    @Published public var gemmaPullStatus: String = ""
+    @Published public var useGemmaGuardrailHarness: Bool = true
+    @Published public var masterPromptLanguage: MasterPromptLanguage = .english
+
+    /// Modelo Gemma selecionado pelo usuário (persistido).
+    @Published public var selectedGemmaModel: String = "gemma3:1b"
+
+    /// Opções de modelo Gemma expostas à UI.
+    public var gemmaModelOptions: [(name: String, label: String)] {
+        var options: [(name: String, label: String)] = [
+            (recommendedGemmaModel, L10n.t("Gemma 3 1B (leve)")),
+            (alternativeGemmaModels[0], L10n.t("Gemma 3 4B (mais eficaz)")),
+        ]
+        if alternativeGemmaModels.count > 1 {
+            options.append((alternativeGemmaModels[1], L10n.t("Gemma 3 12B")))
+        }
+        return options
+    }
+
+    private let gemmaSetupCompletedKey = "promptera_gemma_setup_completed"
+    private let selectedGemmaModelKey = "promptera_selected_gemma_model"
 
     /// Encryption + UserDefaults writes for the prompt library happen off the main thread.
     private static let libraryPersistenceQueue = DispatchQueue(
@@ -59,11 +113,13 @@ public final class PrompteraState: ObservableObject {
         self.clipboardManager = cm
         self.ollamaClient = ollamaClient
         self.promptHarness = PromptHarness(ollamaClient: ollamaClient)
+        self.gemmaGuardrailHarness = GemmaGuardrailHarness(ollamaClient: ollamaClient)
         loadPersistedLibrary()
         
         // Load persisted settings, then refresh using the saved server URL
         // (sequenced, so the first request never goes to the default URL by mistake).
         let savedURL = loadPersistedSettings()
+        loadPersistedGemmaSettings()
         guard autoRefresh else { return }
         
         Task {
@@ -71,6 +127,7 @@ public final class PrompteraState: ObservableObject {
                 await ollamaClient.setBaseURL(savedURL)
             }
             await refreshModels()
+            await checkOllamaReadiness()
         }
     }
     
@@ -99,7 +156,117 @@ public final class PrompteraState: ObservableObject {
         }
         return nil
     }
-    
+
+    // MARK: - Persistência de configurações Gemma
+
+    private func loadPersistedGemmaSettings() {
+        if let saved = settingsStorage.string(forKey: selectedGemmaModelKey) {
+            self.selectedGemmaModel = saved
+        }
+    }
+
+    private func persistSelectedGemmaModel() {
+        settingsStorage.set(selectedGemmaModel, forKey: selectedGemmaModelKey)
+    }
+
+    public func updateSelectedGemmaModel(_ model: String) {
+        selectedGemmaModel = model
+        persistSelectedGemmaModel()
+    }
+
+    public func hasCompletedGemmaSetup() -> Bool {
+        settingsStorage.bool(forKey: gemmaSetupCompletedKey)
+    }
+
+    public func setGemmaSetupCompleted(_ completed: Bool) {
+        settingsStorage.set(completed, forKey: gemmaSetupCompletedKey)
+    }
+
+    // MARK: - Setup Ollama + Gemma (primeira execução / foco no Gemma)
+
+    public func checkOllamaReadiness() async {
+        let available = await ollamaClient.isAvailable()
+        guard available else {
+            if OllamaSetupService.isOllamaInstalled() {
+                self.ollamaSetupStatus = .ollamaInstalledNotRunning
+                self.setStatus(
+                    L10n.t("Ollama instalado, mas não está rodando. Execute 'ollama serve' ou abra o app Ollama."),
+                    kind: .error
+                )
+            } else {
+                self.ollamaSetupStatus = .ollamaNotInstalled
+                self.setStatus(
+                    L10n.t("Ollama não detectado. Siga o assistente para instalar o Ollama e baixar o Gemma."),
+                    kind: .error
+                )
+            }
+            return
+        }
+
+        do {
+            let models = try await ollamaClient.fetchAvailableModels()
+            self.availableModels = models
+
+            let gemmaEntry = models.first { $0.name.hasPrefix("gemma3") || $0.name.hasPrefix("gemma:") }
+            if let gemmaName = gemmaEntry?.name {
+                self.selectedGemmaModel = gemmaName
+                self.persistSelectedGemmaModel()
+                // Seleciona o Gemma como modelo ativo, se o usuário ainda não escolheu outro.
+                if self.selectedModel.isEmpty {
+                    self.selectedModel = gemmaName
+                    self.persistSelectedModel()
+                }
+                self.ollamaSetupStatus = .ready(gemmaModel: gemmaName)
+                self.setStatus(L10n.t("Pronto com o Gemma (%@)", gemmaName), kind: .success)
+            } else {
+                self.ollamaSetupStatus = .ollamaRunningGemmaMissing(installed: models)
+                self.setStatus(L10n.t("Ollama rodando. Baixe o modelo Gemma para começar."), kind: .info)
+            }
+        } catch {
+            self.ollamaSetupStatus = .error(error.localizedDescription)
+            self.setStatus(L10n.t("Falha ao carregar modelos: %@", error.localizedDescription), kind: .error)
+        }
+    }
+
+    public func openOllamaDownloadPage() {
+        OllamaSetupService.openDownloadPage()
+    }
+
+    public func launchOllamaApp() {
+        OllamaSetupService.launchOrOpenDownload()
+    }
+
+    /// Faz o pull do modelo Gemma selecionado, atualizando a barra de progresso.
+    /// Quando termina, recarrega os modelos e marca o setup como concluído.
+    public func pullGemmaModel() async {
+        let model = selectedGemmaModel
+        isPullingGemma = true
+        gemmaPullProgress = 0
+        gemmaPullStatus = L10n.t("Baixando modelo Gemma %@...", model)
+        defer { isPullingGemma = false }
+
+        do {
+            for try await progress in await ollamaClient.pullModel(named: model) {
+                guard !Task.isCancelled else { break }
+                gemmaPullProgress = progress.fraction
+                gemmaPullStatus = progress.status.isEmpty
+                    ? L10n.t("Baixando %@ (%.0f%%)...", model, progress.fraction * 100)
+                    : progress.status
+            }
+
+            await refreshModels()
+            await checkOllamaReadiness()
+
+            if case .ready = ollamaSetupStatus {
+                setGemmaSetupCompleted(true)
+                setStatus(L10n.t("Setup concluído! O Gemma está pronto para gerar prompts."), kind: .success)
+            }
+        } catch {
+            gemmaPullStatus = L10n.t("Falha ao baixar o Gemma: %@", error.localizedDescription)
+            setStatus(gemmaPullStatus, kind: .error)
+        }
+    }
+
     private func persistSelectedModel() {
         settingsStorage.set(selectedModel, forKey: selectedModelKey)
     }
@@ -168,8 +335,12 @@ public final class PrompteraState: ObservableObject {
             self.availableModels = models
             self.errorMessage = nil
             
-            // Prefer optimal models for M4 hardware
+            // Prefer optimal models for M4 hardware.
+            // O Gemma é o foco principal do Promptera, então é priorizado na seleção automática.
             let preferredPriorities = [
+                "gemma3:1b",
+                "gemma3:4b",
+                "gemma3:12b",
                 "qwen2.5-coder:7b",
                 "qwen2.5-coder:14b",
                 "qwen2.5-coder:3b",
@@ -252,12 +423,26 @@ public final class PrompteraState: ObservableObject {
             var lastFlush = clock.now
             
             do {
-                let stream = await promptHarness.executeHarnessStream(
-                    rawInput: input,
-                    preset: preset,
-                    mode: mode,
-                    model: model
-                )
+                // Foco principal: quando o Gemma está selecionado, usa o Gemma Guardrail
+                // Harness (saída JSON estruturada, anti-delírio, língua do vendor).
+                let useGemma = selectedModel.lowercased().contains("gemma") && useGemmaGuardrailHarness
+                let stream: AsyncThrowingStream<HarnessExecutionEvent, Error>
+                if useGemma {
+                    stream = await gemmaGuardrailHarness.executeHarnessStream(
+                        rawInput: input,
+                        preset: preset,
+                        mode: mode,
+                        model: model,
+                        includePortugueseVersion: masterPromptLanguage == .portuguese
+                    )
+                } else {
+                    stream = await promptHarness.executeHarnessStream(
+                        rawInput: input,
+                        preset: preset,
+                        mode: mode,
+                        model: model
+                    )
+                }
                 
                 for try await event in stream {
                     guard !Task.isCancelled else { break }

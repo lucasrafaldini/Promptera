@@ -9,6 +9,7 @@ struct PrompteraCLI {
         
         let ollama = OllamaClient()
         let harness = PromptHarness(ollamaClient: ollama)
+        let gemmaHarness = GemmaGuardrailHarness(ollamaClient: ollama)
         
         print("🪄 Promptera CLI — Meta-Prompt Harness para macOS (Apple Silicon M4)")
         print("-------------------------------------------------------------------")
@@ -27,10 +28,19 @@ struct PrompteraCLI {
                 exit(1)
             }
             
-            // Pick default model
-            let defaultModel = models.first(where: { $0.name.contains("qwen2.5-coder:7b") })?.name
+            // Pick default model: prioriza o Gemma (foco do Promptera), depois os demais.
+            let defaultModel = models.first(where: { $0.name.hasPrefix("gemma3") || $0.name.hasPrefix("gemma:") })?.name
+                ?? models.first(where: { $0.name.contains("qwen2.5-coder:7b") })?.name
                 ?? models.first(where: { $0.name.contains("llama3.1") })?.name
                 ?? models.first!.name
+            
+            // Idioma de saída do Master Prompt (padrão: Inglês, a língua do vendor).
+            var outputLanguage: PrompteraState.MasterPromptLanguage = .english
+            if let idx = args.firstIndex(where: { $0 == "--language" || $0 == "-l" }),
+               args.index(after: idx) < args.endIndex {
+                let next = args[args.index(after: idx)]
+                outputLanguage = (next.lowercased().hasPrefix("pt")) ? .portuguese : .english
+            }
             
             var inputPrompt: String = ""
             
@@ -60,15 +70,27 @@ struct PrompteraCLI {
             }
             
             print("\n🤖 Modelo selecionado: \(defaultModel)")
-            print("⚙️ Modo: Loop Oxair (Gera → Critica → Refina)")
+            let useGemma = defaultModel.lowercased().contains("gemma")
+            print("⚙️ Modo: \(useGemma ? "Gemma Guardrail Harness (saída JSON estruturada, anti-delírio)" : "Loop Oxair (Gera → Critica → Refina)")")
             print("🚀 Executando Harness...\n")
             
-            let stream = await harness.executeHarnessStream(
-                rawInput: inputPrompt,
-                preset: HarnessPreset.presets[0],
-                mode: .iterativeLoop,
-                model: defaultModel
-            )
+            let stream: AsyncThrowingStream<HarnessExecutionEvent, Error>
+            if useGemma {
+                stream = await gemmaHarness.executeHarnessStream(
+                    rawInput: inputPrompt,
+                    preset: HarnessPreset.presets[0],
+                    mode: .iterativeLoop,
+                    model: defaultModel,
+                    includePortugueseVersion: outputLanguage == .portuguese
+                )
+            } else {
+                stream = await harness.executeHarnessStream(
+                    rawInput: inputPrompt,
+                    preset: HarnessPreset.presets[0],
+                    mode: .iterativeLoop,
+                    model: defaultModel
+                )
+            }
             
             var finalResult = ""
             for try await event in stream {

@@ -35,6 +35,22 @@ public actor OllamaClient {
         let response: String?
         let done: Bool?
     }
+
+    /// Progresso de download de um modelo via `api/pull`.
+    public struct PullProgress: Sendable, Equatable {
+        public let status: String
+        public let completed: Int64
+        public let total: Int64?
+        /// Fração concluída (0.0 ... 1.0). 1.0 quando o download/extração termina.
+        public let fraction: Double
+    }
+
+    private struct PullChunk: Decodable {
+        let status: String
+        let completed: Int64
+        let total: Int64?
+        let digest: String?
+    }
     
     public init(baseURL: URL = URL(string: "http://127.0.0.1:11434")!) {
         self.baseURL = baseURL
@@ -102,7 +118,8 @@ public actor OllamaClient {
         model: String,
         prompt: String,
         system: String? = nil,
-        temperature: Double = 0.7
+        temperature: Double = 0.7,
+        format: String? = nil  // ex: "json" para forçar saída estruturada
     ) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -122,6 +139,9 @@ public actor OllamaClient {
                 ]
                 if let system = system, !system.isEmpty {
                     payload["system"] = system
+                }
+                if let format, !format.isEmpty {
+                    payload["format"] = format
                 }
                 
                 do {
@@ -179,12 +199,90 @@ public actor OllamaClient {
         model: String,
         prompt: String,
         system: String? = nil,
-        temperature: Double = 0.7
+        temperature: Double = 0.7,
+        format: String? = nil
     ) async throws -> String {
         var accumulated = ""
-        for try await token in streamGenerate(model: model, prompt: prompt, system: system, temperature: temperature) {
+        for try await token in streamGenerate(model: model, prompt: prompt, system: system, temperature: temperature, format: format) {
             accumulated += token
         }
         return accumulated
+    }
+
+    // MARK: - Model management (pull / install)
+
+    /// Verifica se um modelo já está instalado no Ollama local (exato ou com tag).
+    public func isModelInstalled(_ name: String) async -> Bool {
+        do {
+            let models = try await fetchAvailableModels()
+            return models.contains { $0.name == name || $0.name.hasPrefix(name + ":") }
+        } catch {
+            return false
+        }
+    }
+
+    /// Faz o pull (download) de um modelo via `api/pull`, emitindo progresso.
+    /// Encerra o stream quando o status chega a "success" ou falha.
+    public func pullModel(named model: String) -> AsyncThrowingStream<PullProgress, Error> {
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                let url = baseURL.appendingPathComponent("api/pull")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                let payload: [String: Any] = ["model": model, "stream": true]
+                request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+                do {
+                    let (asyncBytes, response) = try await session.bytes(for: request)
+
+                    guard let http = response as? HTTPURLResponse else {
+                        continuation.finish(throwing: OllamaError.connectionFailed("Sem resposta HTTP no pull do modelo"))
+                        return
+                    }
+                    guard (200...299).contains(http.statusCode) else {
+                        continuation.finish(throwing: OllamaError.serverError(http.statusCode, "Falha no pull do modelo"))
+                        return
+                    }
+
+                    let decoder = JSONDecoder()
+                    for try await line in asyncBytes.lines {
+                        guard !Task.isCancelled else { break }
+                        guard !line.isEmpty else { continue }
+
+                        if let chunk = try? decoder.decode(PullChunk.self, from: Data(line.utf8)) {
+                            let total = chunk.total ?? 0
+                            var fraction: Double
+                            if total > 0 {
+                                fraction = Double(chunk.completed) / Double(total)
+                            } else if chunk.status.lowercased().contains("success") {
+                                fraction = 1.0
+                            } else {
+                                fraction = 0.0
+                            }
+                            fraction = min(max(fraction, 0.0), 1.0)
+
+                            continuation.yield(PullProgress(
+                                status: chunk.status,
+                                completed: chunk.completed,
+                                total: chunk.total,
+                                fraction: fraction
+                            ))
+
+                            if chunk.status.lowercased() == "success" {
+                                break
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
     }
 }

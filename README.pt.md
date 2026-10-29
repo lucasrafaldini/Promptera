@@ -57,13 +57,24 @@ Baixe o `.dmg` mais recente em [Releases](https://github.com/lucasrafaldini/Prom
   - ✍️ **Copywriting & Conteúdo** — Copy persuasivo, artigos, documentação
   - ✨ **Universal (Master)** — Qualquer objetivo geral
 
-### 4. Otimizado para Apple Silicon M4
+### 4. Foco no Gemma + Apple Silicon M4
+- **Setup fácil via o próprio Promptera:** assistente de primeira execução guia a instalação do Ollama e o download do modelo Gemma (`gemma3:1b`, leve e eficaz) — você já começa a gerar prompts em poucos cliques.
 - Detecta e conecta ao servidor local Ollama (`http://127.0.0.1:11434`)
-- Seleção automática dos melhores modelos para M4 (`qwen2.5-coder:7b`, `llama3.1`, `phi4-mini`, `deepseek-coder-v2`)
+- Seleção automática dos melhores modelos para M4 (Gemma priorizado, depois `qwen2.5-coder:7b`, `llama3.1`, `phi4-mini`, `deepseek-coder-v2`)
 - Streaming de tokens em tempo real
 - 100% local — nenhum dado sai do seu Mac
 
-### 5. Configurações Persistentes
+### 5. Gemma Guardrail Harness (anti-delírio)
+Como o Gemma é um modelo pequeno, o Promptera inclui um **harness de guardrails dedicado** para que ele nunca divirja na geração de prompts:
+- **Saída estruturada forçada em JSON** via `format: "json"` do Ollama — nenhum texto solto fora do esquema.
+- **Few-shot em Inglês** (língua do vendor) com exemplo de bom prompt.
+- **Temperatura baixa (0.3)** para saídas determinísticas.
+- **Validação rígida** dos campos obrigatórios (papel, objetivo, instruções, guardrails, schema de saída, placeholders).
+- **Detecção de alucinação** (tags de pensamento, mensagens de recusa, JSON malformado).
+- **Auto-reparo:** se o Gemma sair do esquema, o harness reenvia com o erro, até 3 tentativas.
+- O Master Prompt final é renderizado em **Inglês (língua do vendor dos LLMs alvo)**, com opção de versão em Português.
+
+### 6. Configurações Persistentes
 - Modelo, preset e modo salvos automaticamente
 - URL do Ollama configurável
 - Exportação/Importação completa (JSON)
@@ -71,22 +82,22 @@ Baixe o `.dmg` mais recente em [Releases](https://github.com/lucasrafaldini/Prom
   - Histórico de clipboard
   - Configurações
 
-### 6. Biblioteca de Prompts
+### 7. Biblioteca de Prompts
 - Cada geração bem-sucedida é salva automaticamente
 - Aba **Biblioteca** dedicada com busca fuzzy, edição, exclusão e “carregar no gerador”
 - Cada item guarda a entrada original, o Master Prompt, o preset, o modo e o modelo
 - Armazenada criptografada e incluída na exportação/importação
 
-### 7. Acessibilidade, Idiomas e Temas
+### 8. Acessibilidade, Idiomas e Temas
 - Labels, hints, traits e ações personalizadas de VoiceOver nas telas principais
 - Interface em **português**, **inglês** e **espanhol**, trocável nas Configurações sem reiniciar
 - Cinco temas de cores, aparência clara/escura/sistema e cor de destaque personalizada
 
-### 8. Atualizações Automáticas
+### 9. Atualizações Automáticas
 - Atualizador [Sparkle 2](https://sparkle-project.org) com appcasts assinados em Ed25519
 - Verificação automática opcional e “Verificar Atualizações” nas Configurações
 
-### 9. Interface de Linha de Comando (CLI)
+### 10. Interface de Linha de Comando (CLI)
 ```bash
 # Gerar a partir do texto informado:
 swift run promptera "Criar um microserviço de autenticação JWT em Go"
@@ -101,15 +112,16 @@ swift run promptera --clipboard
 
 ### Pré-requisitos
 - macOS 14.0+ (Sonoma)
-- [Ollama](https://ollama.ai) instalado
-- Modelos recomendados: `ollama pull qwen2.5-coder:7b llama3.1 phi4-mini`
+- [Ollama](https://ollama.ai) (o assistente do Promptera ajuda a instalar e iniciar)
+- Modelo recomendado: `ollama pull gemma3:1b` (leve e eficaz) — ou `gemma3:4b` para mais qualidade
 
-### 1. Iniciar o Ollama
-```bash
-ollama serve
-```
+### 1. Inicie o Promptera e conclua o setup
+O Promptera traz um **assistente de configuração na primeira execução** que:
+1. Verifica se o Ollama está instalado (se não estiver, aponta para o download).
+2. Verifica se o Ollama está rodando (`ollama serve` / app Ollama).
+3. Faz o pull do modelo Gemma (`gemma3:1b`) direto pela interface.
+4. Ativa o **Gemma Guardrail Harness** e você já começa a gerar prompts.
 
-### 2. Abrir o App no Menu Bar
 ```bash
 # Opção A: Build e run direto
 swift run PrompteraApp
@@ -117,6 +129,14 @@ swift run PrompteraApp
 # Opção B: Build do .app nativo
 ./scripts/build_app.sh
 open build/Promptera.app
+```
+
+### 2. (Opcional) Instalar o Ollama manualmente
+```bash
+# Baixe em https://ollama.ai/download, depois inicie o servidor:
+ollama serve
+# Baixe o Gemma (leve e eficaz):
+ollama pull gemma3:1b
 ```
 
 ### 3. (Opcional) Instalar em /Applications
