@@ -170,6 +170,36 @@ public enum OpenWeightModelCatalog {
             description: "Maior qualidade, menor alucinação. Requer 24 GB+ de memória unificada.",
             huggingFaceURL: URL(string: "https://huggingface.co/google/gemma-3-12b-it")
         ),
+        OpenWeightModel(
+            displayName: "Gemma 2 2B",
+            ollamaTag: "gemma2:2b",
+            huggingFaceRepo: "google/gemma-2-2b-it",
+            family: .gemma,
+            parameters: "2B",
+            estimatedMemoryGB: 3.0,
+            description: "Modelo anterior da família Gemma, leve e rápido para hardware limitado.",
+            huggingFaceURL: URL(string: "https://huggingface.co/google/gemma-2-2b-it")
+        ),
+        OpenWeightModel(
+            displayName: "Gemma 2 9B",
+            ollamaTag: "gemma2:9b",
+            huggingFaceRepo: "google/gemma-2-9b-it",
+            family: .gemma,
+            parameters: "9B",
+            estimatedMemoryGB: 9.0,
+            description: "Bom equilíbrio de qualidade e consumo da linha Gemma 2.",
+            huggingFaceURL: URL(string: "https://huggingface.co/google/gemma-2-9b-it")
+        ),
+        OpenWeightModel(
+            displayName: "Gemma 2 27B",
+            ollamaTag: "gemma2:27b",
+            huggingFaceRepo: "google/gemma-2-27b-it",
+            family: .gemma,
+            parameters: "27B",
+            estimatedMemoryGB: 28.0,
+            description: "Maior modelo Gemma 2, requer 40 GB+ de memória unificada.",
+            huggingFaceURL: URL(string: "https://huggingface.co/google/gemma-2-27b-it")
+        ),
         // Llama
         OpenWeightModel(
             displayName: "Llama 3.2 1B",

@@ -76,13 +76,13 @@ Como o Gemma é um modelo pequeno, o Promptera inclui um **harness de guardrails
 
 ### 6. Recomendação de Gemma por hardware
 O Promptera detecta a memória unificada e o chip Apple Silicon do seu Mac e recomenda o modelo Gemma mais adequado:
-- **≤ 8 GB:** Gemma 3 1B (leve, risco médio de alucinação)
-- **16 GB:** Gemma 3 4B (equilíbrio qualidade/consumo)
-- **24 GB+:** Gemma 3 12B (maior qualidade, menor alucinação)
+- **≤ 8 GB:** Gemma 3 1B (leve) ou Gemma 2 2B (alternativa mais leve ainda)
+- **16 GB:** Gemma 3 4B ou Gemma 2 9B (equilíbrio qualidade/consumo)
+- **24 GB+:** Gemma 3 12B (maior qualidade, menor alucinação) ou Gemma 2 27B
 Use o botão “Aplicar recomendação de hardware” nas Configurações para definir automaticamente.
 
 ### 7. Modelos Open Weight (Hugging Face)
-Além do Gemma, o Promptera inclui um catálogo de modelos open weight populares do Hugging Face (Llama, Qwen, Phi, Deepseek, Mistral, etc). Para cada modelo são mostrados:
+Além do Gemma (Gemma 3 e Gemma 2), o Promptera inclui um catálogo de modelos open weight populares do Hugging Face (Llama, Qwen, Phi, Deepseek, Mistral, etc). Para cada modelo são mostrados:
 - **Adequação ao hardware:** score de 0 a 100% baseado na memória do seu Mac.
 - **Risco de execução:** baixo/médio/alto, considerando pressão de memória e tendência a alucinação.
 - **Memória estimada** necessária e link direto para o Hugging Face.

@@ -331,3 +331,10 @@
 "Educação & Treinamento" = "Education & Training";
 "Planos de aula, explicações didáticas, rúbricas de avaliação e materiais de estudo." = "Lesson plans, didactic explanations, evaluation rubrics and study materials.";
 "Defina nível do aluno, objetivos de aprendizagem, exemplos concretos, formato de entrega e critérios de avaliação mensuráveis." = "Define student level, learning objectives, concrete examples, delivery format and measurable evaluation criteria.";
+
+"Gemma 2 2B" = "Gemma 2 2B";
+"Modelo anterior da família Gemma, leve e rápido para hardware limitado." = "Previous Gemma family model, lightweight and fast for limited hardware.";
+"Gemma 2 9B" = "Gemma 2 9B";
+"Bom equilíbrio de qualidade e consumo da linha Gemma 2." = "Good balance of quality and consumption in the Gemma 2 line.";
+"Gemma 2 27B" = "Gemma 2 27B";
+"Maior modelo Gemma 2, requer 40 GB+ de memória unificada." = "Largest Gemma 2 model, requires 40 GB+ of unified memory.";
