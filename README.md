@@ -74,7 +74,30 @@ Como o Gemma é um modelo pequeno, o Promptera inclui um **harness de guardrails
 - **Auto-reparo:** se o Gemma sair do esquema, o harness reenvia com a descrição do erro, até 3 tentativas.
 - O Master Prompt final é renderizado em **Inglês (língua do vendor dos LLMs alvo)**, com opção de versão em Português.
 
-### 6. Persistent Settings
+### 6. Recomendação de Gemma por hardware
+O Promptera detecta a memória unificada e o chip Apple Silicon do seu Mac e recomenda o modelo Gemma mais adequado:
+- **≤ 8 GB:** Gemma 3 1B (leve, risco médio de alucinação)
+- **16 GB:** Gemma 3 4B (equilíbrio qualidade/consumo)
+- **24 GB+:** Gemma 3 12B (maior qualidade, menor alucinação)
+Use o botão “Aplicar recomendação de hardware” nas Configurações para definir automaticamente.
+
+### 7. Modelos Open Weight (Hugging Face)
+Além do Gemma, o Promptera inclui um catálogo de modelos open weight populares do Hugging Face (Llama, Qwen, Phi, Deepseek, Mistral, etc). Para cada modelo são mostrados:
+- **Adequação ao hardware:** score de 0 a 100% baseado na memória do seu Mac.
+- **Risco de execução:** baixo/médio/alto, considerando pressão de memória e tendência a alucinação.
+- **Memória estimada** necessária e link direto para o Hugging Face.
+Você pode selecionar qualquer modelo do catálogo para gerar prompts; modelos Gemma continuam usando o harness anti-delírio.
+
+### 8. Novos presets de domínio (complementos de prompt)
+Além dos presets originais, o Promptera inclui:
+- **Data & Analytics** — SQL, pipelines, visualizações
+- **Segurança & DevSecOps** — auditoria, IAM, criptografia, STRIDE
+- **Mobile (iOS & Android)** — SwiftUI/UIKit, Jetpack Compose
+- **IA/ML & Agentes** — RAG, fine-tuning, Chain-of-Thought, guardrails
+- **Jurídico & Compliance** — contratos, LGPD/GDPR, isenções
+- **Educação & Treinamento** — planos de aula, rúbricas
+
+### 9. Persistent Settings
 - Model, preset, and mode saved automatically
 - Configurable Ollama URL
 - Full Export/Import (JSON)
@@ -82,22 +105,22 @@ Como o Gemma é um modelo pequeno, o Promptera inclui um **harness de guardrails
   - Clipboard history
   - Settings
 
-### 7. Prompt Library
+### 10. Prompt Library
 - Every successful generation is saved automatically
 - Dedicated **Library** tab with fuzzy search, edit, delete and “load into generator”
 - Each entry keeps its original input, Master Prompt, preset, mode and model
 - Encrypted at rest and included in Export/Import
 
-### 8. Accessibility, Localization & Themes
+### 11. Accessibility, Localization & Themes
 - VoiceOver labels, hints, traits and custom actions across the main views
 - Interface available in **English**, **Portuguese** and **Spanish**, switchable in Settings without restarting
 - Five color themes, light/dark/system appearance and a custom accent color
 
-### 9. Automatic Updates
+### 12. Automatic Updates
 - Built-in [Sparkle 2](https://sparkle-project.org) updater with Ed25519-signed appcasts
 - Optional automatic checks, plus “Check for Updates” in Settings
 
-### 10. Command Line Interface (CLI)
+### 13. Command Line Interface (CLI)
 ```bash
 # Generate from provided text:
 swift run promptera "Create a JWT auth microservice in Go"

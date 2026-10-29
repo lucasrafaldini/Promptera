@@ -143,7 +143,7 @@ final class ModelsTests: XCTestCase {
     }
 
     func testHarnessPresetPresetsCount() {
-        XCTAssertEqual(HarnessPreset.presets.count, 5)
+        XCTAssertEqual(HarnessPreset.presets.count, 11)
     }
 
     func testHarnessPresetPresetIds() {
@@ -154,6 +154,12 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(ids.contains("system_design"))
         XCTAssertTrue(ids.contains("reasoning"))
         XCTAssertTrue(ids.contains("copywriting"))
+        XCTAssertTrue(ids.contains("data_analytics"))
+        XCTAssertTrue(ids.contains("security"))
+        XCTAssertTrue(ids.contains("mobile"))
+        XCTAssertTrue(ids.contains("ai_ml"))
+        XCTAssertTrue(ids.contains("legal"))
+        XCTAssertTrue(ids.contains("education"))
     }
 
     func testHarnessPresetPresetTitles() {
@@ -164,6 +170,12 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(titles.contains("System Design & DevOps"))
         XCTAssertTrue(titles.contains("Análise & Raciocínio Profundo"))
         XCTAssertTrue(titles.contains("Copywriting & Conteúdo"))
+        XCTAssertTrue(titles.contains("Data & Analytics"))
+        XCTAssertTrue(titles.contains("Segurança & DevSecOps"))
+        XCTAssertTrue(titles.contains("Mobile (iOS & Android)"))
+        XCTAssertTrue(titles.contains("IA/ML & Agentes"))
+        XCTAssertTrue(titles.contains("Jurídico & Compliance"))
+        XCTAssertTrue(titles.contains("Educação & Treinamento"))
     }
 
     func testPromptLibraryItemDerivesTitleFromInput() {

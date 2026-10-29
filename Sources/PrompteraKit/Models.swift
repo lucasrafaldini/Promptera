@@ -225,6 +225,48 @@ public struct HarnessPreset: Identifiable, Equatable, Hashable {
             icon: "text.quote",
             description: "Copy de alta conversão, artigos técnicos, posts persuasivos e documentação.",
             domainGuidance: "Defina voz/tom, público-alvo, gatilhos de interesse, estrutura de narrativa (AIDA/PAS) e proibições de clichês de IA."
+        ),
+        HarnessPreset(
+            id: "data_analytics",
+            title: "Data & Analytics",
+            icon: "chart.bar.doc.horizontal",
+            description: "Consultas SQL, pipelines de dados, visualizações e relatórios analíticos.",
+            domainGuidance: "Especifique dialecto SQL (Postgres, MySQL, BigQuery), esquema de tabelas, particionamento, índices, SLA de latência e regras de máscara de dados sensíveis."
+        ),
+        HarnessPreset(
+            id: "security",
+            title: "Segurança & DevSecOps",
+            icon: "shield.fill",
+            description: "Auditoria de segurança, IAM, criptografia, saneamento de entrada e resposta a incidentes.",
+            domainGuidance: "Exija princípio do menor privilégio, validação de entrada, segredos fora do código, logs de auditoria, CORS/CSP e matriz de ameaças (STRIDE)."
+        ),
+        HarnessPreset(
+            id: "mobile",
+            title: "Mobile (iOS & Android)",
+            icon: "iphone",
+            description: "Apps nativos SwiftUI/UIKit e Kotlin/Jetpack Compose, navegabilidade e ciclo de vida.",
+            domainGuidance: "Defina versão mínima do SO, gerenciamento de estado, persistência local, notificações, otimização de bateria e testes de UI."
+        ),
+        HarnessPreset(
+            id: "ai_ml",
+            title: "IA/ML & Agentes",
+            icon: "brain",
+            description: "Prompts para agentes, RAG, fine-tuning, Chain-of-Thought e pipelines de LLM.",
+            domainGuidance: "Especifique janela de contexto, estratégia de recuperação, temperatura, formato de saída estruturada (JSON) e guardrails contra alucinações."
+        ),
+        HarnessPreset(
+            id: "legal",
+            title: "Jurídico & Compliance",
+            icon: "doc.text.magnifyingglass",
+            description: "Contratos, cláusulas, LGPD/GDPR, termos de uso e avaliação de riscos legais.",
+            domainGuidance: "Inclua isenções de responsabilidade, não é aconselhamento jurídico, cláusulas de privacidade de dados e jurisdição aplicável."
+        ),
+        HarnessPreset(
+            id: "education",
+            title: "Educação & Treinamento",
+            icon: "book.fill",
+            description: "Planos de aula, explicações didáticas, rúbricas de avaliação e materiais de estudo.",
+            domainGuidance: "Defina nível do aluno, objetivos de aprendizagem, exemplos concretos, formato de entrega e critérios de avaliação mensuráveis."
         )
     ]
 }

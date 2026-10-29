@@ -68,10 +68,19 @@ public final class PrompteraState: ObservableObject {
 
     // MARK: - Setup Ollama + Gemma (primeira execução / foco no Gemma)
 
-    /// Modelo Gemma recomendado (leve e eficaz).
-    public let recommendedGemmaModel = "gemma3:1b"
-    /// Alternativas maiores, quando o usuário quiser mais qualidade.
+    /// Alternativas maiores de Gemma, quando o usuário quiser mais qualidade.
     public let alternativeGemmaModels = ["gemma3:4b", "gemma3:12b"]
+
+    /// Modelo Gemma recomendado dinamicamente com base no hardware local
+    /// (memória unificada e chip Apple Silicon).
+    public var recommendedGemmaModel: String {
+        GemmaHardwareAdvisor.recommend().model
+    }
+
+    /// Recomendação completa de hardware para o Gemma (útil para mostrar ao usuário).
+    public var gemmaHardwareRecommendation: GemmaHardwareRecommendation {
+        GemmaHardwareAdvisor.recommend()
+    }
 
     @Published public var ollamaSetupStatus: OllamaSetupStatus = .checking
     @Published public var isPullingGemma: Bool = false
@@ -82,6 +91,21 @@ public final class PrompteraState: ObservableObject {
 
     /// Modelo Gemma selecionado pelo usuário (persistido).
     @Published public var selectedGemmaModel: String = "gemma3:1b"
+
+    /// Modelo open weight selecionado pelo usuário (persistido). Quando não nulo,
+    /// sobrepõe o `selectedModel` na geração.
+    @Published public var selectedOpenWeightModel: String? = nil
+
+    /// Catálogo de modelos open weight (Hugging Face / Ollama).
+    public var openWeightModels: [OpenWeightModel] {
+        OpenWeightModelCatalog.models
+    }
+
+    /// Modelos open weight ordenados por adequação ao hardware local.
+    public var openWeightModelsBySuitability: [OpenWeightModel] {
+        let availableGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
+        return OpenWeightModelCatalog.sortedBySuitability(availableMemoryGB: availableGB)
+    }
 
     /// Opções de modelo Gemma expostas à UI.
     public var gemmaModelOptions: [(name: String, label: String)] {
@@ -97,6 +121,7 @@ public final class PrompteraState: ObservableObject {
 
     private let gemmaSetupCompletedKey = "promptera_gemma_setup_completed"
     private let selectedGemmaModelKey = "promptera_selected_gemma_model"
+    private let selectedOpenWeightModelKey = "promptera_selected_open_weight_model"
 
     /// Encryption + UserDefaults writes for the prompt library happen off the main thread.
     private static let libraryPersistenceQueue = DispatchQueue(
@@ -163,10 +188,17 @@ public final class PrompteraState: ObservableObject {
         if let saved = settingsStorage.string(forKey: selectedGemmaModelKey) {
             self.selectedGemmaModel = saved
         }
+        if let saved = settingsStorage.string(forKey: selectedOpenWeightModelKey) {
+            self.selectedOpenWeightModel = saved
+        }
     }
 
     private func persistSelectedGemmaModel() {
         settingsStorage.set(selectedGemmaModel, forKey: selectedGemmaModelKey)
+    }
+
+    private func persistSelectedOpenWeightModel() {
+        settingsStorage.set(selectedOpenWeightModel, forKey: selectedOpenWeightModelKey)
     }
 
     public func updateSelectedGemmaModel(_ model: String) {
@@ -212,8 +244,9 @@ public final class PrompteraState: ObservableObject {
                 self.selectedGemmaModel = gemmaName
                 self.persistSelectedGemmaModel()
                 // Seleciona o Gemma como modelo ativo, se o usuário ainda não escolheu outro.
+                // Prioriza a recomendação de hardware (memória/chip) quando não há preferência salva.
                 if self.selectedModel.isEmpty {
-                    self.selectedModel = gemmaName
+                    self.selectedModel = self.recommendedGemmaModel
                     self.persistSelectedModel()
                 }
                 self.ollamaSetupStatus = .ready(gemmaModel: gemmaName)
@@ -414,7 +447,8 @@ public final class PrompteraState: ObservableObject {
         let input = inputText
         let preset = selectedPreset
         let mode = selectedMode
-        let model = selectedModel
+        // Se o usuário escolheu um modelo open weight, ele sobrepõe o modelo padrão.
+        let effectiveModel = selectedOpenWeightModel ?? selectedModel
         let flushInterval = streamFlushInterval
         
         generationTask = Task {
@@ -423,16 +457,17 @@ public final class PrompteraState: ObservableObject {
             var lastFlush = clock.now
             
             do {
-                // Foco principal: quando o Gemma está selecionado, usa o Gemma Guardrail
-                // Harness (saída JSON estruturada, anti-delírio, língua do vendor).
-                let useGemma = selectedModel.lowercased().contains("gemma") && useGemmaGuardrailHarness
+                // Foco principal: quando o Gemma está selecionado (padrão ou open weight),
+                // usa o Gemma Guardrail Harness (saída JSON estruturada, anti-delírio,
+                // língua do vendor).
+                let useGemma = effectiveModel.lowercased().contains("gemma") && useGemmaGuardrailHarness
                 let stream: AsyncThrowingStream<HarnessExecutionEvent, Error>
                 if useGemma {
                     stream = await gemmaGuardrailHarness.executeHarnessStream(
                         rawInput: input,
                         preset: preset,
                         mode: mode,
-                        model: model,
+                        model: effectiveModel,
                         includePortugueseVersion: masterPromptLanguage == .portuguese
                     )
                 } else {
@@ -440,7 +475,7 @@ public final class PrompteraState: ObservableObject {
                         rawInput: input,
                         preset: preset,
                         mode: mode,
-                        model: model
+                        model: effectiveModel
                     )
                 }
                 
@@ -468,7 +503,7 @@ public final class PrompteraState: ObservableObject {
                                 output: finalResult,
                                 preset: preset,
                                 mode: mode,
-                                model: model
+                                model: effectiveModel
                             )
                         }
                     }
@@ -528,6 +563,24 @@ public final class PrompteraState: ObservableObject {
     public func updateSelectedMode(_ mode: HarnessMode) {
         selectedMode = mode
         persistSelectedMode()
+    }
+
+    public func updateSelectedOpenWeightModel(_ model: String?) {
+        selectedOpenWeightModel = model
+        persistSelectedOpenWeightModel()
+    }
+
+    /// Aplica a recomendação de hardware como modelo Gemma ativo (quando o usuário
+    /// ainda não escolheu um modelo explicitamente).
+    public func applyHardwareRecommendation() {
+        let rec = GemmaHardwareAdvisor.recommend()
+        self.selectedGemmaModel = rec.model
+        self.persistSelectedGemmaModel()
+        if self.selectedModel.isEmpty {
+            self.selectedModel = rec.model
+            self.persistSelectedModel()
+        }
+        self.setStatus(L10n.t("Modelo recomendado para este Mac: %@", rec.model), kind: .info)
     }
     
     // MARK: - Prompt Library

@@ -317,6 +317,37 @@ public struct OllamaSetupWizardView: View {
 
             Divider().background(PrompteraColors.borderSubtle)
 
+            // Recomendação de hardware para Gemma
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(L10n.t("Recomendação de hardware"), systemImage: "desktopcomputer")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(PrompteraColors.textSecondary)
+                    Spacer()
+                    Text(state.gemmaHardwareRecommendation.riskLevel.rawValue)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(riskColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(riskColor.opacity(0.1))
+                        .cornerRadius(4)
+                }
+                Text(state.gemmaHardwareRecommendation.rationale)
+                    .font(.caption)
+                    .foregroundStyle(PrompteraColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Label("\(Int(state.gemmaHardwareRecommendation.availableMemoryGB)) GB \(L10n.t("Memória disponível"))", systemImage: "memorychip")
+                        .font(.caption2)
+                        .foregroundStyle(PrompteraColors.textSecondary)
+                    Label("\(String(format: "%.0f", state.gemmaHardwareRecommendation.estimatedMemoryGB)) GB \(L10n.t("Memória estimada necessária"))", systemImage: "chip.fill")
+                        .font(.caption2)
+                        .foregroundStyle(PrompteraColors.textSecondary)
+                }
+            }
+
+            Divider().background(PrompteraColors.borderSubtle)
+
             // Progresso do download
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -352,6 +383,16 @@ public struct OllamaSetupWizardView: View {
                 .controlSize(.regular)
                 .disabled(state.isPullingGemma || !state.isOllamaConnected)
 
+                Button {
+                    state.applyHardwareRecommendation()
+                } label: {
+                    Label(L10n.t("Aplicar recomendação de hardware"), systemImage: "wand.and.stars")
+                        .font(.callout.weight(.medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(state.isPullingGemma)
+
                 Spacer()
 
                 Button {
@@ -373,6 +414,14 @@ public struct OllamaSetupWizardView: View {
                 .controlSize(.regular)
                 .disabled(state.isPullingGemma)
             }
+        }
+    }
+
+    private var riskColor: Color {
+        switch state.gemmaHardwareRecommendation.riskLevel {
+        case .low: return PrompteraColors.success
+        case .medium: return PrompteraColors.warning
+        case .high: return PrompteraColors.error
         }
     }
 

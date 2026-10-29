@@ -494,6 +494,75 @@ struct SettingsView: View {
                     }
                 }
                 
+                // Open Weight Models Section
+                SettingsSection(title: L10n.t("Modelos Open Weight (Hugging Face)"), icon: "arrow.down.app.fill") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L10n.t("Escolha um modelo open weight popular para gerar prompts. A adequação e o risco são calculados com base na memória do seu Mac."))
+                            .font(.caption)
+                            .foregroundStyle(PrompteraColors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Divider().background(PrompteraColors.borderSubtle)
+
+                        // Modelo atualmente selecionado
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(state.selectedOpenWeightModel != nil ? PrompteraColors.success : PrompteraColors.textSecondary.opacity(0.4))
+                                .frame(width: 12, height: 12)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(state.selectedOpenWeightModel ?? L10n.t("Não usar modelo open weight (usar modelo padrão)"))
+                                    .font(.callout.weight(.medium))
+                                    .foregroundStyle(PrompteraColors.textPrimary)
+                                Text(state.selectedOpenWeightModel != nil
+                                    ? L10n.t("Modelo selecionado")
+                                    : L10n.t("Usa o modelo padrão do Ollama para gerar prompts."))
+                                    .font(.caption)
+                                    .foregroundStyle(PrompteraColors.textSecondary)
+                            }
+                            Spacer()
+                            Button {
+                                state.updateSelectedOpenWeightModel(nil)
+                            } label: {
+                                Text(L10n.t("Limpar seleção"))
+                                    .font(.caption)
+                                    .foregroundStyle(PrompteraColors.error)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(state.selectedOpenWeightModel == nil)
+                        }
+
+                        Divider().background(PrompteraColors.borderSubtle)
+
+                        // Botão aplicar recomendação de hardware
+                        Button {
+                            state.applyHardwareRecommendation()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "wand.and.stars")
+                                Text(L10n.t("Aplicar recomendação de hardware"))
+                            }
+                            .font(.callout.weight(.medium))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Divider().background(PrompteraColors.borderSubtle)
+
+                        // Catálogo de modelos
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(state.openWeightModelsBySuitability) { model in
+                                OpenWeightModelRow(
+                                    model: model,
+                                    isSelected: state.selectedOpenWeightModel == model.ollamaTag ?? model.id
+                                ) {
+                                    state.updateSelectedOpenWeightModel(model.ollamaTag ?? model.id)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Methodology Section
                 SettingsSection(title: L10n.t("Metodologia Oxair (Harness)"), icon: "brain.head.profile") {
                     VStack(alignment: .leading, spacing: 10) {
@@ -921,5 +990,150 @@ struct GemmaModelSettingsPill: View {
         }
         .buttonStyle(.plain)
         .help(L10n.t("Selecionar modelo %@", name))
+    }
+}
+
+/// Linha de um modelo open weight do catálogo, com adequação e risco ao hardware.
+struct OpenWeightModelRow: View {
+    let model: OpenWeightModel
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var suitability: OpenWeightModel.Suitability {
+        let availableGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
+        return model.suitability(availableMemoryGB: availableGB)
+    }
+
+    private var riskColor: Color {
+        switch suitability.risk {
+        case .low: return PrompteraColors.success
+        case .medium: return PrompteraColors.warning
+        case .high: return PrompteraColors.error
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: familyIcon(model.family))
+                        .font(.title3)
+                        .foregroundStyle(PrompteraColors.brandPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.displayName)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(PrompteraColors.textPrimary)
+                        Text(model.family.rawValue + " • " + model.parameters + " parâmetros")
+                            .font(.caption2)
+                            .foregroundStyle(PrompteraColors.textSecondary)
+                    }
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(PrompteraColors.success)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    adequacyBadge
+                    riskBadge
+                    memoryBadge
+                }
+
+                Text(model.description)
+                    .font(.caption)
+                    .foregroundStyle(PrompteraColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Text(suitability.rationale)
+                        .font(.caption2)
+                        .foregroundStyle(PrompteraColors.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    if let url = model.huggingFaceURL {
+                        Button {
+                            NSWorkspace.shared.open(url)
+                        } label: {
+                            Label(L10n.t("Ver no Hugging Face"), systemImage: "arrow.up.right.square")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? PrompteraColors.brandPrimary.opacity(0.08) : PrompteraColors.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? PrompteraColors.brandPrimary : PrompteraColors.borderDefault, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(L10n.t("Selecionar modelo %@", model.displayName))
+    }
+
+    private var adequacyBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "cpu.chip")
+                .font(.system(size: 9))
+            Text(String(format: "%.0f%%", suitability.score * 100))
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(adequacyColor)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(adequacyColor.opacity(0.12))
+        .cornerRadius(4)
+    }
+
+    private var adequacyColor: Color {
+        if suitability.score >= 0.7 { return PrompteraColors.success }
+        if suitability.score >= 0.4 { return PrompteraColors.warning }
+        return PrompteraColors.error
+    }
+
+    private var riskBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 9))
+            Text(L10n.t("Risco"))
+                .font(.caption2.weight(.bold)) + Text(" \(suitability.risk.rawValue)")
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(riskColor)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(riskColor.opacity(0.12))
+        .cornerRadius(4)
+    }
+
+    private var memoryBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "memorychip")
+                .font(.system(size: 9))
+            Text("\(String(format: "%.0f", model.estimatedMemoryGB)) GB \(L10n.t("Memória estimada"))")
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(PrompteraColors.textSecondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(PrompteraColors.borderSubtle)
+        .cornerRadius(4)
+    }
+
+    private func familyIcon(_ family: OpenWeightModel.Family) -> String {
+        switch family {
+        case .gemma: return "sparkles"
+        case .llama: return "hare.fill"
+        case .qwen: return "cpu.fill"
+        case .phi: return "brain.head.profile"
+        case .deepseek: return "arrow.triangle.branch"
+        case .mistral: return "leaf.fill"
+        }
     }
 }
