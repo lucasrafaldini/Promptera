@@ -61,7 +61,9 @@ public enum GemmaHardwareAdvisor {
         "gemma2:2b", "gemma2:9b", "gemma2:27b",
     ]
 
-    /// Retorna a recomendação de Gemma com base no hardware atual.
+    /// Retorna a recomendação de Gemma com base no hardware **local do usuário**
+    /// (memória unificada do Mac onde o Promptera está instalado), nunca em um
+    /// valor hardcoded de desenvolvimento.
     public static func recommend() -> GemmaHardwareRecommendation {
         let availableGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
         let chip = SystemInfo.chipName

@@ -317,7 +317,8 @@ public enum OpenWeightModelCatalog {
         ),
     ]
 
-    /// Retorna os modelos ordenados por adequação ao hardware local (melhor primeiro).
+    /// Retorna os modelos ordenados por adequação ao **hardware local do usuário**
+    /// (memória do Mac onde o Promptera está instalado), nunca a um valor fixo de desenvolvimento.
     public static func sortedBySuitability(availableMemoryGB: Double) -> [OpenWeightModel] {
         models.sorted { lhs, rhs in
             lhs.suitability(availableMemoryGB: availableMemoryGB).score >
